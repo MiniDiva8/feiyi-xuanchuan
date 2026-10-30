@@ -1,0 +1,30 @@
+name: 缺陷
+description: 提供复现步骤、范围和预期行为
+title: "[缺陷] "
+body:
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 允许修改路径
+      description: 指派一名对应模块负责人；跨模块修复拆成关联任务。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据与验收方法
+      description: 保留复现命令、错误信息及需要补充的回归检查；不粘贴凭据。
+    validations:
+      required: true

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "project_name": "非遗宣传",
+  "repository": "MiniDiva8/feiyi-xuanchuan",
+  "base_branch": "main",
+  "members": {
+    "a": {
+      "login": "MiniDiva8",
+      "module": "frontend",
+      "paths": [
+        "apps/web/",
+        "docs/frontend/",
+        "tests/frontend/"
+      ],
+      "reviewers": [
+        "zhupaifan"
+      ]
+    },
+    "b": {
+      "login": "donghaochen45-pixel",
+      "module": "backend",
+      "paths": [
+        "services/api/",
+        "docs/backend/",
+        "tests/backend/"
+      ],
+      "reviewers": [
+        "MiniDiva8"
+      ]
+    },
+    "c": {
+      "login": "zhupaifan",
+      "module": "ai",
+      "paths": [
+        "services/marketing-ai/",
+        "docs/ai/",
+        "tests/ai/"
+      ],
+      "reviewers": [
+        "donghaochen45-pixel"
+      ]
+    }
+  },
+  "shared_paths": [
+    "packages/contracts/",
+    ".github/",
+    "scripts/",
+    "collab/",
+    "tests/",
+    "docs/",
+    "README.md",
+    "AGENTS.md",
+    ".gitignore",
+    ".gitattributes",
+    "collab.ps1",
+    "collab.sh"
+  ],
+  "required_check": "collab-quality",
+  "checks": [
+    [
+      "{python}",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-v"
+    ]
+  ]
+}

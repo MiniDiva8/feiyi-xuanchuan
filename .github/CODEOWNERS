@@ -1,0 +1,14 @@
+# Review ownership. Primary author + backup reviewer prevents self-review deadlocks.
+# Private-repository enforcement depends on the GitHub plan.
+* @MiniDiva8 @donghaochen45-pixel @zhupaifan
+/apps/web/ @MiniDiva8 @zhupaifan
+/docs/frontend/ @MiniDiva8 @zhupaifan
+/tests/frontend/ @MiniDiva8 @zhupaifan
+/services/api/ @donghaochen45-pixel @MiniDiva8
+/docs/backend/ @donghaochen45-pixel @MiniDiva8
+/tests/backend/ @donghaochen45-pixel @MiniDiva8
+/services/marketing-ai/ @zhupaifan @donghaochen45-pixel
+/docs/ai/ @zhupaifan @donghaochen45-pixel
+/tests/ai/ @zhupaifan @donghaochen45-pixel
+/packages/contracts/ @MiniDiva8 @donghaochen45-pixel @zhupaifan
+/.github/ @MiniDiva8 @donghaochen45-pixel @zhupaifan

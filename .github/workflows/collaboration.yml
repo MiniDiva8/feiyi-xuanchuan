@@ -1,0 +1,73 @@
+name: collaboration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: collab-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Run collaboration behavior tests
+        run: python -m unittest discover -s tests -v
+
+  policy:
+    name: task-scope-policy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Check Issue, developer branch and module boundaries against base policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/check_pr.py --ci
+
+  quality:
+    name: collab-quality
+    if: always()
+    needs: [tests, policy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all relevant jobs to pass
+        env:
+          TEST_RESULT: ${{ needs.tests.result }}
+          POLICY_RESULT: ${{ needs.policy.result }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          test "$TEST_RESULT" = "success"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            test "$POLICY_RESULT" = "success"
+          fi
