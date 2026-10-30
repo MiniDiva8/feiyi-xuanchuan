@@ -52,7 +52,7 @@ python scripts/github_admin.py invite --apply --confirm MiniDiva8/feiyi-xuanchua
 python scripts/github_admin.py protect --apply --confirm MiniDiva8/feiyi-xuanchuan
 ```
 要求 collab-quality 通过、分支最新、至少一位同伴与 CODEOWNERS 审批、解决讨论；禁止强推和删除，管理员也受保护。
-先让 CI 至少运行一次，核对实际 check 名称确为 collab-quality；在实际 GitHub 设置页确认保护有效。
+先创建一个草稿 PR，让 PR 工作流至少运行一次，核对其 check 名称确为 collab-quality；主分支/手动运行的 collab-main-quality 不替代 PR 策略检查。在实际 GitHub 设置页确认保护有效。
 
 **套餐边界：**官方文档说明，私有仓库分支保护需要 GitHub Pro/Team/Enterprise 等支持计划。Free 私有仓库可协作，但这些强制项可能不可用。
 403/功能不可用时，脚本明确失败；保持私有，不购买、不转公开、不伪称保护已启用。可先执行人工合并约定；若希望服务器强制拦截，需所有者自行决定支持计划。

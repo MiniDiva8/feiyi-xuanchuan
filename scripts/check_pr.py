@@ -44,8 +44,14 @@ def evaluate_pr(pr, checks, reviews, current_main_sha, policy, *, up_to_date=Fal
     required = [c for c in checks if c.get("name") == policy["required_check"]]
     if not required:
         reasons.append("required CI check missing")
-    elif not all(c.get("bucket") == "pass" for c in required):
-        reasons.append("required CI check has not passed")
+    else:
+        expected_workflow = policy.get("required_workflow", "collaboration")
+        pr_checks = [c for c in required
+                     if c.get("event") == "pull_request" and c.get("workflow") == expected_workflow]
+        if not pr_checks:
+            reasons.append("required CI check is not from the expected PR workflow")
+        elif not all(c.get("bucket") == "pass" for c in pr_checks):
+            reasons.append("required CI check has not passed")
     if any(c.get("bucket") not in {"pass", "skipping"} for c in checks):
         reasons.append("some CI checks are pending, failed, or cancelled")
     known = {m["login"].lower() for m in policy["members"].values()}

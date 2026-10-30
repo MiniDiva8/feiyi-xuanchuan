@@ -113,5 +113,16 @@ class PullRequestGateTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(CollabError):
                 policy_scope(TEAM, "a", [path], True)
 
+    def test_manual_or_main_ci_cannot_replace_the_pr_policy_run(self):
+        for event in ["workflow_dispatch", "push"]:
+            with self.subTest(event=event):
+                self.checks[0]["event"] = event
+                self.assertFalse(self.evaluate()["ready"])
+
+    def test_same_check_name_from_a_different_workflow_is_not_accepted(self):
+        self.checks[0]["workflow"] = "unrelated workflow"
+        self.assertFalse(self.evaluate()["ready"])
+
+
 if __name__ == "__main__":
     unittest.main()

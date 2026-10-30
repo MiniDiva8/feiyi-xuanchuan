@@ -51,6 +51,7 @@ def start(project, args):
     branch = f"codex/{login}/issue-{args.issue}-{args.slug}"
     if project.git("show-ref", "--verify", "--quiet", f"refs/heads/{branch}", check=False).returncode == 0:
         raise CollabError("BRANCH", "Branch already exists. Resume its task/context rather than recreating it.")
+    project.guard_ignored_collisions(f"origin/{project.base}")
     project.git("switch", "-c", branch, f"origin/{project.base}")
     data = {
         "member": args.member, "login": login, "issue": args.issue, "branch": branch,
@@ -63,11 +64,16 @@ def start(project, args):
 
 def save(project, args):
     data = project.active()
-    paths = project.paths("HEAD", untracked=True)
+    staged = set(project.paths("--cached", "HEAD"))
+    working = set(project.paths(untracked=True))
+    paths = sorted(staged | working)
     if not paths:
         emit({"changed": False, "message": "No changes to commit."})
         return
     project.guard_files(data, paths)
+    partial = staged.intersection(working)
+    if partial:
+        raise CollabError("INDEX", "Files have both staged and unstaged changes. Inspect and resolve staging explicitly; nothing was changed: " + ", ".join(sorted(partial)))
     identity = project.git("var", "GIT_AUTHOR_IDENT", check=False)
     if identity.returncode:
         raise CollabError("IDENTITY", "Set your own repository-local Git user.name and user.email first; no global identity is changed by this kit.")
@@ -97,7 +103,8 @@ def sync(project, args):
     project.fetch()
     inspection = project.inspect_merge()
     if inspection["needs_sync"]:
-        project.git("merge", "--no-edit", f"origin/{project.base}")
+        project.guard_ignored_collisions(f"origin/{project.base}")
+        project.git("merge", "--no-edit", "--no-overwrite-ignore", f"origin/{project.base}")
     emit({**inspection, "synced": True, "head_sha": project.git("rev-parse", "HEAD").stdout.strip()})
 
 def publish(project, args):

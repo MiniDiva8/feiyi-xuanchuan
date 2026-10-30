@@ -170,12 +170,16 @@ class Project:
             raise CollabError("DIRTY", "Working tree/index is not clean. Commit your task changes first; no automatic stash/reset is used.")
 
     def remote_is_local_bare(self):
-        result = self.git("remote", "get-url", "origin", check=False)
-        if result.returncode:
+        fetch = self.git("remote", "get-url", "--all", "origin", check=False)
+        push = self.git("remote", "get-url", "--push", "--all", "origin", check=False)
+        fetch_urls = fetch.stdout.strip().splitlines()
+        push_urls = push.stdout.strip().splitlines()
+        if fetch.returncode or push.returncode or len(fetch_urls) != 1 or len(push_urls) != 1:
             return False
-        value = result.stdout.strip()
-        candidate = Path(value)
-        if not candidate.is_absolute() or not candidate.is_dir():
+        candidate = Path(fetch_urls[0])
+        destination = Path(push_urls[0])
+        if (not candidate.is_absolute() or not candidate.is_dir()
+                or not destination.is_absolute() or destination.resolve() != candidate.resolve()):
             return False
         return run(["git", "--git-dir", candidate, "rev-parse", "--is-bare-repository"],
                    self.root, check=False).stdout.strip() == "true"
@@ -183,17 +187,44 @@ class Project:
     def check_remote(self, offline=False):
         if offline:
             if not self.remote_is_local_bare():
-                raise CollabError("OFFLINE", "Offline mode is simulation-only and requires a local bare origin. GitHub remotes cannot bypass identity/Issue checks.")
+                raise CollabError("OFFLINE", "Offline mode is simulation-only and requires one matching local bare fetch/push origin. GitHub remotes cannot bypass identity/Issue checks.")
             return
-        value = self.git("remote", "get-url", "origin").stdout.strip()
-        parsed = urlsplit(value)
+        fetch_urls = self.git("remote", "get-url", "--all", "origin").stdout.strip().splitlines()
+        push_urls = self.git("remote", "get-url", "--push", "--all", "origin").stdout.strip().splitlines()
+        if len(fetch_urls) != 1 or len(push_urls) != 1:
+            raise CollabError("REMOTE", "Exactly one approved fetch URL and one approved push URL are required.")
         expected = self.policy["repository"].lower()
-        path = parsed.path.strip("/")
-        if path.endswith(".git"):
-            path = path[:-4]
-        if (parsed.scheme != "https" or parsed.hostname != "github.com" or
-            parsed.username or parsed.password or parsed.query or parsed.fragment or path.lower() != expected):
-            raise CollabError("REMOTE", "origin must be the configured GitHub repository over credential-free HTTPS.")
+        for value in fetch_urls + push_urls:
+            parsed = urlsplit(value)
+            path = parsed.path.strip("/")
+            if path.endswith(".git"):
+                path = path[:-4]
+            if (parsed.scheme != "https" or parsed.hostname != "github.com" or
+                parsed.username or parsed.password or parsed.query or parsed.fragment or path.lower() != expected):
+                raise CollabError("REMOTE", "Every effective origin fetch/push URL must be the configured GitHub repository over credential-free HTTPS.")
+
+    def guard_ignored_collisions(self, target):
+        incoming = {p for p in self.git("ls-tree", "-r", "--name-only", "-z", target).stdout.split("\0") if p}
+        tracked = {p for p in self.git("ls-files", "-z").stdout.split("\0") if p}
+        collisions = set()
+        checked = set()
+        for relative in incoming - tracked:
+            path = self.root / relative
+            candidates = [path, *[p for p in path.parents if p != self.root and self.root in p.parents]]
+            for candidate in candidates:
+                rel = candidate.relative_to(self.root).as_posix()
+                if rel in checked:
+                    continue
+                checked.add(rel)
+                if not (candidate.exists() or candidate.is_symlink()):
+                    continue
+                if self.git("check-ignore", "-q", "--", rel, check=False).returncode == 0:
+                    collisions.add(rel)
+                elif candidate == path and candidate.is_dir():
+                    hidden = self.git("ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", rel).stdout
+                    collisions.update(p for p in hidden.split("\0") if p)
+        if collisions:
+            raise CollabError("IGNORED", "Incoming tracked paths would overwrite ignored local files. Preserve/move them explicitly before retrying; no switch/merge was performed: " + ", ".join(sorted(collisions)))
 
     def fetch(self):
         self.git("fetch", "--prune", "origin",

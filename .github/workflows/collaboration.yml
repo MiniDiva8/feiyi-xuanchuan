@@ -56,7 +56,7 @@ jobs:
         run: python scripts/check_pr.py --ci
 
   quality:
-    name: collab-quality
+    name: ${{ github.event_name == 'pull_request' && 'collab-quality' || 'collab-main-quality' }}
     if: always()
     needs: [tests, policy]
     runs-on: ubuntu-latest

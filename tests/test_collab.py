@@ -230,5 +230,82 @@ class GitLifecycleTests(unittest.TestCase):
         self.assertEqual(git(self.clone, "status", "--porcelain").stdout, "")
 
 
+    def test_hidden_staged_foreign_edit_is_refused_without_mutating_index(self):
+        self.begin()
+        foreign = self.clone / "services/api/app.txt"
+        foreign.write_text("foreign staged edit\n")
+        git(self.clone, "add", "--", "services/api/app.txt")
+        foreign.write_text("api baseline\n")
+        (self.clone / "apps/web/page.txt").write_text("frontend change\n")
+        before_head = git(self.clone, "rev-parse", "HEAD").stdout
+        before_index = git(self.clone, "diff", "--cached", "--binary").stdout
+        self.refused(self.cli("save", "--message", "must not leak staged edit"), "SCOPE")
+        self.assertEqual(git(self.clone, "rev-parse", "HEAD").stdout, before_head)
+        self.assertEqual(git(self.clone, "diff", "--cached", "--binary").stdout, before_index)
+        self.assertEqual(foreign.read_text(), "api baseline\n")
+
+    def test_partially_staged_owned_file_is_preserved_for_explicit_resolution(self):
+        self.begin()
+        path = self.clone / "apps/web/page.txt"
+        path.write_text("staged version\n")
+        git(self.clone, "add", "--", "apps/web/page.txt")
+        path.write_text("unstaged version\n")
+        before_head = git(self.clone, "rev-parse", "HEAD").stdout
+        before_index = git(self.clone, "diff", "--cached", "--binary").stdout
+        self.refused(self.cli("save", "--message", "preserve partial staging"), "INDEX")
+        self.assertEqual(git(self.clone, "rev-parse", "HEAD").stdout, before_head)
+        self.assertEqual(git(self.clone, "diff", "--cached", "--binary").stdout, before_index)
+        self.assertEqual(path.read_text(), "unstaged version\n")
+
+    def test_fetch_url_cannot_hide_unapproved_or_multiple_push_urls(self):
+        import os
+        sys.path.insert(0, str(KIT / "scripts"))
+        from collab_lib import Project, CollabError
+        approved = "https://github.com/MiniDiva8/feiyi-xuanchuan.git"
+        git(self.clone, "remote", "set-url", "origin", approved)
+        git(self.clone, "config", "remote.origin.pushurl", "https://github.com/example/unapproved.git")
+        previous = Path.cwd()
+        try:
+            os.chdir(self.clone)
+            project = Project(root=self.clone)
+            with self.assertRaises(CollabError) as caught:
+                project.check_remote()
+            self.assertEqual(caught.exception.code, "REMOTE")
+            git(self.clone, "config", "--unset-all", "remote.origin.pushurl")
+            git(self.clone, "config", "--add", "remote.origin.pushurl", approved)
+            git(self.clone, "config", "--add", "remote.origin.pushurl", "https://github.com/example/second.git")
+            with self.assertRaises(CollabError):
+                project.check_remote()
+        finally:
+            os.chdir(previous)
+
+    def test_start_preserves_ignored_file_that_main_newly_tracks(self):
+        local = self.clone / ".env"
+        local.write_text("LOCAL_FIXTURE=keep\n")
+        (self.seed / ".env").write_text("MAIN_FIXTURE=tracked\n")
+        git(self.seed, "add", "-f", "--", ".env")
+        git(self.seed, "commit", "-m", "fixture ignored collision")
+        git(self.seed, "push", "origin", "main")
+        before = git(self.clone, "rev-parse", "HEAD").stdout
+        self.refused(self.cli("start", "--offline", "--member", "a", "--issue", "8", "--slug", "collision"), "IGNORED")
+        self.assertEqual(local.read_text(), "LOCAL_FIXTURE=keep\n")
+        self.assertEqual(git(self.clone, "rev-parse", "HEAD").stdout, before)
+        self.assertEqual(git(self.clone, "branch", "--show-current").stdout.strip(), "main")
+
+    def test_sync_preserves_ignored_file_that_main_newly_tracks(self):
+        self.begin()
+        local = self.clone / ".env"
+        local.write_text("LOCAL_FIXTURE=keep\n")
+        (self.seed / ".env").write_text("MAIN_FIXTURE=tracked\n")
+        git(self.seed, "add", "-f", "--", ".env")
+        git(self.seed, "commit", "-m", "fixture ignored collision")
+        git(self.seed, "push", "origin", "main")
+        before = git(self.clone, "rev-parse", "HEAD").stdout
+        self.refused(self.cli("sync"), "IGNORED")
+        self.assertEqual(local.read_text(), "LOCAL_FIXTURE=keep\n")
+        self.assertEqual(git(self.clone, "rev-parse", "HEAD").stdout, before)
+        self.assertFalse((self.clone / ".git/MERGE_HEAD").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
