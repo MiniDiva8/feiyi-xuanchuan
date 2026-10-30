@@ -50,3 +50,12 @@
 - 已逐项写出失败回归、修复并重跑；最终完整 45 项通过，87.617 秒。
 - 新增覆盖：隐藏暂存改动、部分暂存保留、有效 pushurl、忽略文件碰撞、PR CI 的 workflow/event 来源。
 - GitHub 私有仓库创建已完成；首次上传、邀请、设置、实际 PR/Actions 与三人 Cloud 验收仍分别等待操作或本人确认。
+
+## 原生流程进展（本 PR 创建前）
+- main 已首次上传，提交 2132fa30164d984e5de92c79420783ee6bd73dbd；保持 PRIVATE。
+- GitHub 原生 HTTPS 独立 clone 已读取该 main。
+- 实际主分支 Actions 40999602574：Ubuntu、Windows 测试 success；汇总 collab-main-quality success；PR 策略在 push 事件按设计 skipped。
+- donghaochen45-pixel、zhupaifan 的 write 邀请已发送；是否接受须以 GitHub 当前状态核实。
+- main 分支保护实际返回 403，要求支持计划；没有启用，没有购买或改公开。
+- 本人的 Cloud 入口已在截图中出现；仓库选择/授权与环境发布仍在本人操作中，未记为通过。
+- 本 PR 用于验证独立分支、原生 PR 和简化文档，保持未合并；PR Actions 以 GitHub 最新运行记录为准。
