@@ -22,3 +22,12 @@ coverage/
 Thumbs.db
 .codex/auth.json
 .aws/
+
+# Business runtime data and local verification output
+.data/
+.artifacts/
+playwright-report/
+test-results/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

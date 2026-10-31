@@ -1,0 +1,11 @@
+.git
+.venv
+**/node_modules
+**/dist
+.data
+.artifacts
+.env
+.collab
+.superpowers
+**/__pycache__
+tests
