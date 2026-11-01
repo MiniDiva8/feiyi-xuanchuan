@@ -1,10 +1,10 @@
 """Preparation UI checks with mocked API; never writes merchant data."""
-import json
+import argparse,json
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
 
-def run():
+def run(base_url):
     output = Path(__file__).resolve().parents[2] / '.artifacts' / 'preparation'
     output.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
@@ -34,7 +34,7 @@ def run():
             route.fulfill(status=status, content_type='application/json', body=json.dumps(data))
 
         page.route('**/api/**', api)
-        page.goto('http://127.0.0.1:8010')
+        page.goto(base_url)
         panel = page.locator('section').filter(has=page.get_by_role('heading', name='开始一次真实的营销活动'))
         expect(panel.get_by_role('button', name='下一步：确认宣传资料')).to_be_visible()
         expect(panel.get_by_text('去准备', exact=True)).to_have_count(4)
@@ -58,4 +58,6 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--base-url", default="http://127.0.0.1:8011")
+    run(parser.parse_args().base_url)

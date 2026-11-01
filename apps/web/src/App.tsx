@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Users,
   LayoutDashboard,
   BookOpen,
   Package,
   Flag,
   ClipboardCheck,
   ChartNoAxesCombined,
+  Users,
   Settings,
   ChevronDown,
   LogOut,
@@ -14,14 +14,16 @@ import {
   Menu,
   X,
   Search,
-  ArrowUpRight,
+  ShieldCheck,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
 import { request, post, workspacePath, ApiError } from "./api";
+import { parseRoute, routeHash } from "./navigation.mjs";
 import type { Session } from "./types";
 import { AppContext } from "./context";
 import { Button, Form, Loading, Modal, Notice } from "./components/UI";
+import QuickNavigation from "./components/QuickNavigation";
 import Auth from "./pages/Auth";
 import OverviewPage from "./pages/Overview";
 import { KnowledgePage, OfferingsPage } from "./pages/Resources";
@@ -30,29 +32,65 @@ import PublicationsPage from "./pages/Publications";
 import AnalyticsPage from "./pages/Analytics";
 import SettingsPage from "./pages/Settings";
 import ChannelsPage from "./pages/Channels";
-const nav = [
-  { id: "channels", label: "渠道账号", icon: Users },
-  { id: "overview", label: "经营概览", icon: LayoutDashboard },
-  { id: "knowledge", label: "品牌知识库", icon: BookOpen },
-  { id: "offerings", label: "产品与课程", icon: Package },
-  { id: "campaigns", label: "营销活动", icon: Flag },
-  { id: "publications", label: "审核与发布", icon: ClipboardCheck },
-  { id: "analytics", label: "数据与复盘", icon: ChartNoAxesCombined },
+const sections = [
+  {
+    label: "工作台",
+    items: [{ id: "overview", label: "经营概览", icon: LayoutDashboard }],
+  },
+  {
+    label: "品牌与经营",
+    items: [
+      { id: "knowledge", label: "品牌知识库", icon: BookOpen },
+      { id: "offerings", label: "产品与课程", icon: Package },
+    ],
+  },
+  {
+    label: "内容与传播",
+    items: [
+      { id: "campaigns", label: "营销活动", icon: Flag },
+      { id: "publications", label: "审核与发布", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "渠道与洞察",
+    items: [
+      { id: "channels", label: "渠道账号", icon: Users },
+      { id: "analytics", label: "数据与复盘", icon: ChartNoAxesCombined },
+    ],
+  },
 ];
+const nav = sections.flatMap((section) => section.items);
 export default function App() {
   const [session, setSession] = useState<Session | null>(null),
     [loading, setLoading] = useState(true),
     [loadError, setLoadError] = useState(""),
     [workspaceId, setWorkspaceId] = useState(""),
-    [page, setPage] = useState("overview"),
-    [campaignId, setCampaignId] = useState(""),
+    [route, setRoute] = useState(() => parseRoute(window.location.hash)),
     [epoch, setEpoch] = useState(0),
     [mobile, setMobile] = useState(false),
+    [quick, setQuick] = useState(false),
     [createWorkspace, setCreateWorkspace] = useState(false),
     [toast, setToast] = useState<{ message: string; tone: string } | null>(
       null,
     );
-  const loadSession = () => {
+  const go = useCallback((page: string, id?: string) => {
+    const hash = routeHash(page, id);
+    setRoute(parseRoute(hash));
+    if (window.location.hash !== hash) window.location.hash = hash;
+    setMobile(false);
+    setQuick(false);
+    window.scrollTo({ top: 0 });
+  }, []);
+  useEffect(() => {
+    const change = () => {
+      setRoute(parseRoute(window.location.hash));
+      setMobile(false);
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("hashchange", change);
+    return () => window.removeEventListener("hashchange", change);
+  }, []);
+  const loadSession = useCallback(() => {
     setLoading(true);
     setLoadError("");
     request<Session>("/auth/me")
@@ -67,26 +105,40 @@ export default function App() {
           setLoadError(e.message);
       })
       .finally(() => setLoading(false));
-  };
-  useEffect(loadSession, []);
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 5000);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
-  const notify = useCallback(
-    (message: string, tone = "success") => setToast({ message, tone }),
-    [],
-  );
-  const refresh = useCallback(() => setEpoch((v) => v + 1), []);
-  const go = useCallback((p: string, id?: string) => {
-    setPage(p);
-    if (id) setCampaignId(id);
-    setMobile(false);
-    window.scrollTo({ top: 0 });
   }, []);
-  if (loading) return <Loading />;
+  useEffect(loadSession, [loadSession]);
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [toast]);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "k" &&
+        session
+      ) {
+        event.preventDefault();
+        setQuick((value) => !value);
+      }
+      if (event.key === "Escape") setMobile(false);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [session]);
+  const notify = useCallback(
+      (message: string, tone = "success") => setToast({ message, tone }),
+      [],
+    ),
+    refresh = useCallback(() => setEpoch((value) => value + 1), []);
+  if (loading)
+    return (
+      <div className="app-start">
+        <span className="brand-seal">承</span>
+        <Loading />
+      </div>
+    );
   if (loadError && !session)
     return (
       <div className="boot-error">
@@ -97,34 +149,52 @@ export default function App() {
   if (!session)
     return (
       <Auth
-        onSuccess={(s) => {
-          setSession(s);
-          setWorkspaceId(s.workspaces[0]?.id || "");
+        onSuccess={(value) => {
+          setSession(value);
+          setWorkspaceId(value.workspaces[0]?.id || "");
+          go("overview");
         }}
       />
     );
   const workspace =
-    session.workspaces.find((w) => w.id === workspaceId) ||
+    session.workspaces.find((value) => value.id === workspaceId) ||
     session.workspaces[0];
   if (!workspace) return <Notice>暂无可用商家空间，请重新登录。</Notice>;
-  const path = (p: string) => workspacePath(workspace.id, p);
+  const path = (value: string) => workspacePath(workspace.id, value),
+    page = route.page;
+  const title =
+    page === "studio"
+      ? "活动工作室"
+      : page === "settings"
+        ? "商家设置"
+        : nav.find((item) => item.id === page)?.label || "经营概览";
   return (
     <AppContext.Provider
       value={{ workspace, path, notify, go, refresh, epoch }}
     >
       <div className="app">
-        <a className="skip-link" href="#main-content">
+        <a
+          className="skip-link"
+          href="#main-content"
+          onClick={(event) => {
+            event.preventDefault();
+            document.getElementById("main-content")?.focus();
+          }}
+        >
           跳至主要内容
         </a>
         {mobile && (
           <div className="sidebar-scrim" onClick={() => setMobile(false)} />
         )}
-        <aside className={"sidebar " + (mobile ? "open" : "")}>
+        <aside
+          className={"sidebar " + (mobile ? "open" : "")}
+          aria-label="商家导航"
+        >
           <a
             className="brand"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            href="#/overview"
+            onClick={(event) => {
+              event.preventDefault();
               go("overview");
             }}
           >
@@ -149,50 +219,57 @@ export default function App() {
               <select
                 aria-label="切换商家空间"
                 value={workspace.id}
-                onChange={(e) => {
-                  setWorkspaceId(e.target.value);
+                onChange={(event) => {
+                  setWorkspaceId(event.target.value);
                   go("overview");
                   refresh();
                 }}
               >
-                {session.workspaces.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
+                {session.workspaces.map((value) => (
+                  <option key={value.id} value={value.id}>
+                    {value.name}
                   </option>
                 ))}
               </select>
             </label>
-            <ChevronDown size={15} />
+            <ChevronDown size={14} />
           </div>
-          <span className="nav-caption">工作空间 / WORKSPACE</span>
           <nav>
-            {nav.map((n) => (
-              <button
-                key={n.id}
-                className={
-                  page === n.id || (page === "studio" && n.id === "campaigns")
-                    ? "active"
-                    : ""
-                }
-                onClick={() => go(n.id)}
-              >
-                <n.icon size={19} />
-                {n.label}
-                {page === n.id && <span className="nav-dot" />}
-              </button>
+            {sections.map((section) => (
+              <div className="nav-group" key={section.label}>
+                <span className="nav-caption">{section.label}</span>
+                {section.items.map((item) => (
+                  <button
+                    key={item.id}
+                    aria-current={
+                      page === item.id ||
+                      (page === "studio" && item.id === "campaigns")
+                        ? "page"
+                        : undefined
+                    }
+                    className={
+                      page === item.id ||
+                      (page === "studio" && item.id === "campaigns")
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() => go(item.id)}
+                  >
+                    <item.icon size={18} />
+                    <span>{item.label}</span>
+                    {(page === item.id ||
+                      (page === "studio" && item.id === "campaigns")) && (
+                      <span className="nav-dot" />
+                    )}
+                  </button>
+                ))}
+              </div>
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <div className="sidebar-note">
-              <span>
-                让手艺的价值
-                <br />
-                被看见，也被记住。
-              </span>
-              <div className="note-grid" aria-hidden="true">
-                匠
-              </div>
-              <ArrowUpRight size={17} />
+            <div className="sidebar-workflow">
+              <span className="workflow-dot" />
+              <span>资料有据 · 内容可审 · 经营可循</span>
             </div>
             <button
               className={
@@ -231,12 +308,14 @@ export default function App() {
                   try {
                     await post("/auth/logout");
                     setSession(null);
+                    setQuick(false);
+                    setMobile(false);
                   } catch (e) {
                     notify((e as Error).message, "error");
                   }
                 }}
               >
-                <LogOut size={18} />
+                <LogOut size={17} />
               </button>
             </div>
           </div>
@@ -251,25 +330,28 @@ export default function App() {
               <Menu size={21} />
             </button>
             <div className="breadcrumb">
-              工作台 <span>/</span>
-              <strong>
-                {page === "studio"
-                  ? "活动工作室"
-                  : page === "settings"
-                    ? "商家设置"
-                    : nav.find((n) => n.id === page)?.label}
-              </strong>
+              <span className="breadcrumb-home">工作台</span>
+              <span>/</span>
+              <strong>{title}</strong>
             </div>
             <div className="topbar-right">
-              <span className="live-status">
-                <i />
-                空间数据已连接
+              <button
+                className="quick-trigger"
+                onClick={() => setQuick(true)}
+                aria-label="打开快捷导航"
+              >
+                <Search size={16} />
+                <span>快捷导航</span>
+                <kbd>Ctrl K</kbd>
+              </button>
+              <span className="workspace-private">
+                <ShieldCheck size={14} />
+                独立商家空间
               </span>
               <span className="topbar-date">
                 {new Date().toLocaleDateString("zh-CN", {
                   month: "long",
                   day: "numeric",
-                  weekday: "long",
                 })}
               </span>
               <button
@@ -281,7 +363,12 @@ export default function App() {
               </button>
             </div>
           </header>
-          <main id="main-content" key={workspace.id}>
+          <main
+            tabIndex={-1}
+            id="main-content"
+            className={"page page-" + page}
+            key={workspace.id}
+          >
             {page === "overview" ? (
               <OverviewPage />
             ) : page === "channels" ? (
@@ -291,9 +378,12 @@ export default function App() {
             ) : page === "offerings" ? (
               <OfferingsPage />
             ) : page === "campaigns" ? (
-              <CampaignsPage />
+              <CampaignsPage
+                key={route.create ? "new" : "list"}
+                createInitially={route.create}
+              />
             ) : page === "studio" ? (
-              <StudioPage key={campaignId} id={campaignId} />
+              <StudioPage key={route.campaignId} id={route.campaignId} />
             ) : page === "publications" ? (
               <PublicationsPage />
             ) : page === "analytics" ? (
@@ -303,8 +393,8 @@ export default function App() {
             )}
           </main>
           <footer className="workspace-footer">
-            <span>承艺 / 让每一份匠心有迹可循</span>
-            <span>资料有据 · 版本可溯 · 数据真实</span>
+            <span>承艺 / 每一次传播，都有真实的来处</span>
+            <span>HERITAGE, WITH PURPOSE</span>
           </footer>
         </div>
         {toast && (
@@ -324,6 +414,7 @@ export default function App() {
             </button>
           </div>
         )}
+        {quick && <QuickNavigation go={go} close={() => setQuick(false)} />}{" "}
         {createWorkspace && (
           <Modal
             title="创建新的商家空间"
@@ -335,16 +426,16 @@ export default function App() {
                 { key: "description", label: "商家简介", type: "textarea" },
               ]}
               onCancel={() => setCreateWorkspace(false)}
-              onSubmit={async (d) => {
-                const w = await post<Session["workspaces"][number]>(
+              onSubmit={async (data) => {
+                const value = await post<Session["workspaces"][number]>(
                   "/workspaces",
-                  d,
+                  data,
                 );
                 setSession({
                   ...session,
-                  workspaces: [...session.workspaces, w],
+                  workspaces: [...session.workspaces, value],
                 });
-                setWorkspaceId(w.id);
+                setWorkspaceId(value.id);
                 setCreateWorkspace(false);
                 go("overview");
                 notify("商家空间已创建");

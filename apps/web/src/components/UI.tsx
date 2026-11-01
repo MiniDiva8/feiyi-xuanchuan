@@ -156,11 +156,13 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  className = "",
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -168,7 +170,11 @@ export function Modal({
     const prior = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const el = ref.current;
-    el?.querySelector<HTMLElement>("input,textarea,select,button")?.focus();
+    (
+      el?.querySelector<HTMLElement>("[autofocus]") ||
+      el?.querySelector<HTMLElement>("input,textarea,select") ||
+      el?.querySelector<HTMLElement>("button")
+    )?.focus({ preventScroll: true });
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === "Tab" && el) {
@@ -203,7 +209,7 @@ export function Modal({
       }}
     >
       <div
-        className={"modal " + (wide ? "wide" : "")}
+        className={"modal " + (wide ? "wide " : "") + className}
         ref={ref}
         role="dialog"
         aria-modal="true"

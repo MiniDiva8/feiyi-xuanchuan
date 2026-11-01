@@ -27,12 +27,12 @@ type Snapshot = {
   id: string;
   date: string;
   source: string;
-  followers: number;
-  views: number;
-  likes: number;
-  comments: number;
-  shares: number;
-  posts: number;
+  followers: number | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  posts: number | null;
   latest_post_date: string | null;
 };
 type Channel = {
@@ -86,6 +86,7 @@ export default function ChannelsPage() {
   return (
     <>
       <SectionTitle
+        eyebrow="CHANNELS & COMMUNITY"
         title="渠道账号与运营记录"
         description="把各平台账号和同口径的数据留在当前商家空间。"
         action={
@@ -128,7 +129,13 @@ export default function ChannelsPage() {
               }
             >
               <div className="channel-content">
-                  <Button variant="secondary small" disabled={!canEdit} onClick={() => setEditing(account)}>编辑昵称与主页</Button>
+                <Button
+                  variant="secondary small"
+                  disabled={!canEdit}
+                  onClick={() => setEditing(account)}
+                >
+                  编辑昵称与主页
+                </Button>
                 <div className="inline">
                   <Badge tone="ochre">手动记录 · 未自动同步</Badge>
                   {account.profile_url && (
@@ -232,19 +239,33 @@ export default function ChannelsPage() {
         </div>
       )}
       {(adding || editing) && (
-        <Modal title={editing ? "编辑渠道账号" : "添加渠道账号"} onClose={() => { setAdding(false); setEditing(null); }}>
+        <Modal
+          title={editing ? "编辑渠道账号" : "添加渠道账号"}
+          onClose={() => {
+            setAdding(false);
+            setEditing(null);
+          }}
+        >
           <Form
             initial={editing || {}}
             fields={[
-              {
-                key: "platform",
-                label: "平台",
-                type: "select",
-                options: platforms,
-                required: true,
-              },
+              ...(!editing
+                ? [
+                    {
+                      key: "platform",
+                      label: "平台",
+                      type: "select",
+                      options: platforms,
+                      required: true,
+                    },
+                    {
+                      key: "account_id",
+                      label: "账号标识 / UID",
+                      required: true,
+                    },
+                  ]
+                : []),
               { key: "name", label: "账号昵称", required: true },
-              { key: "account_id", label: "账号标识 / UID", required: true },
               {
                 key: "profile_url",
                 label: "主页链接（可选）",
@@ -253,7 +274,10 @@ export default function ChannelsPage() {
               },
             ]}
             submitLabel="保存账号"
-            onCancel={() => { setAdding(false); setEditing(null); }}
+            onCancel={() => {
+              setAdding(false);
+              setEditing(null);
+            }}
             onSubmit={async (values) => {
               if (editing) await patch(path(`/channels/${editing.id}`), values);
               else await post(path("/channels"), values);
