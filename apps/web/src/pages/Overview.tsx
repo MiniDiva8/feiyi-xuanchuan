@@ -16,6 +16,7 @@ import {
 import { useApp } from "../context";
 import { useResource } from "../hooks";
 import type { Overview } from "../types";
+import Preparation from "../components/Preparation";
 import {
   Badge,
   Button,
@@ -125,6 +126,7 @@ export default function OverviewPage() {
           </Badge>
         </div>
       </div>
+      <Preparation key={workspace.id} overview={data} />
       <div className="metrics-grid">
         {metrics.map((m) => (
           <div className="metric-card" key={m.label}>
