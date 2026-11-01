@@ -31,6 +31,56 @@ def register(c, email="owner@example.com"):
     return r.json()["workspaces"][0]["id"]
 
 
+def test_photo_poster_preview_revision_and_export(client):
+    import base64
+    w = register(client)
+    _, ca, plan, _ = prepared(client, w)
+    poster = post(client, w, f"campaigns/{ca['id']}/assets/generate",
+                  {"plan_id": plan['id'], "channel": "公众号", "kind": "poster"})
+    post(client, w, f"assets/{poster['id']}/approve", {})
+    png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=')
+    image = client.post(f'/api/workspaces/{w}/files', files={'file': ('photo.png', png, 'image/png')}).json()
+    payload = {'title': '<实拍>课程', 'body': '真实体验课程，详情见报名入口', 'poster_template': 'warm',
+               'poster_image_id': image['id'], 'photo_confirmed': True}
+    prefix = f'/api/workspaces/{w}/assets/{poster["id"]}'
+    preview = client.post(prefix + '/preview', json=payload)
+    assert preview.status_code == 200
+    assert 'data:image/png;base64,' in preview.text
+    assert '待审核预览' in preview.text and '商家已审核版本' not in preview.text
+    assert '&lt;实拍&gt;' in preview.text
+    revised = client.post(prefix + '/revise', json=payload).json()
+    assert revised['status'] == 'draft'
+    assert revised['content']['poster_template'] == 'warm'
+    assert client.get(prefix + '/export?format=svg').status_code == 409
+    new = f'/api/workspaces/{w}/assets/{revised["id"]}'
+    assert client.get(new + '/export?format=svg').status_code == 409
+    assert client.post(new + '/approve', json={}).status_code == 200
+    exported = client.get(new + '/export?format=svg')
+    assert exported.status_code == 200
+    assert 'data:image/png;base64,' in exported.text
+    assert '商家已审核版本' in exported.text and '#914d35' in exported.text
+    removed = client.post(new + '/revise', json={**payload, 'poster_image_id': None}).json()
+    assert removed['content']['poster_image_id'] is None
+    assert removed['content']['photo_confirmed'] is False
+
+
+def test_photo_poster_rejects_foreign_nonimage_and_missing_consent(client):
+    w = register(client)
+    _, ca, plan, _ = prepared(client, w)
+    poster = post(client, w, f"campaigns/{ca['id']}/assets/generate",
+                  {"plan_id": plan['id'], "channel": "公众号", "kind": "poster"})
+    other = client.post('/api/workspaces', json={'name': '另一商家'}).json()['id']
+    foreign = client.post(f'/api/workspaces/{other}/files', files={'file': ('photo.png', b'\x89PNG\r\n\x1a\nbytes', 'image/png')}).json()['id']
+    text = client.post(f'/api/workspaces/{w}/files', files={'file': ('notes.txt', b'notes', 'text/plain')}).json()['id']
+    local = client.post(f'/api/workspaces/{w}/files', files={'file': ('photo.png', b'\x89PNG\r\n\x1a\nbytes', 'image/png')}).json()['id']
+    prefix = f'/api/workspaces/{w}/assets/{poster["id"]}'
+    for suffix in ('preview', 'revise'):
+        for file_id, consent, expected in ((foreign, True, 404), (text, True, 422), (local, False, 422)):
+            result = client.post(prefix + '/' + suffix, json={'body': '文案', 'poster_image_id': file_id, 'photo_confirmed': consent})
+            assert result.status_code == expected, result.text
+        assert client.post(prefix + '/' + suffix, json={'body': '文案', 'poster_template': 'unknown'}).status_code == 422
+
+
 def post(c, w, path, data):
     r = c.post(f"/api/workspaces/{w}/{path}", json=data)
     assert r.status_code in (200, 201), r.text

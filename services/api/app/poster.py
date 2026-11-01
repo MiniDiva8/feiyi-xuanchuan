@@ -24,11 +24,15 @@ def _lines(text: str, units: int) -> list[str]:
 
 
 def render_poster(
-    title: str, body: str, channel: str = "", workspace_name: str = ""
+    title: str, body: str, channel: str = "", workspace_name: str = "",
+    template: str = "heritage", photo: str | None = None, approved: bool = True,
 ) -> str:
     titles = _lines(title, 28)
     lines = _lines(body, 64)
     body_y = 300 + len(titles) * 76
+    photo_y = body_y - 25
+    if photo:
+        body_y += 570
     bottom = body_y + len(lines) * 43 + 85
     height = max(1440, bottom + 230)
     footer_y = height - 180
@@ -51,6 +55,9 @@ def render_poster(
             f'<text x="90" y="{265+index*76}" font-size="56" font-weight="700" fill="#163f36">{escape(line)}</text>'
         )
     divider = body_y - 35
+    if photo:
+        parts.append(f'<rect x="90" y="{photo_y}" width="900" height="520" rx="8" fill="#e5e7de"/>')
+        parts.append(f'<image x="90" y="{photo_y}" width="900" height="520" preserveAspectRatio="xMidYMid meet" href="{escape(photo, quote=True)}"/>')
     parts.append(f'<path d="M92 {divider}H980" stroke="#c4cbbd"/>')
     parts.append(f'<rect x="90" y="{divider-3}" width="72" height="6" fill="#b9975a"/>')
     for index, line in enumerate(lines):
@@ -61,14 +68,21 @@ def render_poster(
         [
             f'<rect x="70" y="{footer_y-38}" width="940" height="142" rx="5" fill="#235b4d"/>',
             f'<text x="102" y="{footer_y+10}" font-size="24" fill="#f5f1e7">{escape(workspace_name[:28] or "商家传播素材")}</text>',
-            f'<text x="102" y="{footer_y+52}" font-size="18" fill="#d4dfce">商家已审核版本 · {escape(channel[:30])}</text>',
+            f'<text x="102" y="{footer_y+52}" font-size="18" fill="#d4dfce">{"商家已审核版本" if approved else "待审核预览 · 不用于发布"} · {escape(channel[:30])}</text>',
             f'<text x="90" y="{height-53}" font-size="15" fill="#7e8b7e">承艺 / 每一份表达，都有来处。</text>',
             "</g></svg>",
         ]
     )
     # Font is applied on the root too so the masthead uses the same CJK fallback.
-    return "".join(parts).replace(
+    result = "".join(parts).replace(
         "<svg xmlns=",
         '<svg font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif" xmlns=',
         1,
     )
+    palettes = {
+        "warm": {"#f5f1e7": "#fff5e9", "#235b4d": "#914d35", "#163f36": "#683622", "#507665": "#936a53", "#3d5147": "#644b3b"},
+        "minimal": {"#f5f1e7": "#ffffff", "#235b4d": "#25354b", "#163f36": "#172236", "#507665": "#52647b", "#3d5147": "#3d4859"},
+    }
+    for old, new in palettes.get(template, {}).items():
+        result = result.replace(old, new)
+    return result

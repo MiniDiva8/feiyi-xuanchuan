@@ -44,3 +44,11 @@ check_content -> [{level,message}]. Only confirmed marketing knowledge is used; 
 PATCH /workspaces/{workspace_id}/campaigns/{id} accepts partial CampaignInput, returns Campaign; retains IDs and history, prior approvals become stale if the brief changed. New-round campaigns can update budget and dates before regeneration.
 CSV rows sharing an external_id but differing normalized data are conflicts, not duplicates: preview returns row errors; import is rejected atomically. Only exact normalized duplicates are skipped.
 Sales/registration approval/export/publication require a matching sellable product/course and positive capacity. Asset channel must appear in both the approved plan and campaign channels.
+
+## Photo poster revisions
+
+`POST /api/workspaces/{workspace_id}/assets/{id}/preview` (editor): accepts the revision body and returns a non-persisted draft SVG with no-store caching. It does not authorize publishing.
+
+Poster revisions optionally accept `poster_template: heritage|warm|minimal`, `poster_image_id: string|null` and `photo_confirmed: boolean`. A newly supplied image ID must identify a PNG/JPEG/WebP file in the same workspace and requires explicit confirmation. Null removes the image. Omitting poster fields retains the existing layout/photo. Non-poster assets reject poster-specific fields. Saving creates a new draft version; existing version approvals do not transfer.
+
+Approved SVG export embeds the stored photo as a data URL (no external image fetch or public file link). PNG conversion uses the same SVG. Draft preview is available to editors but approved export continues to enforce current plan/source/version rules.

@@ -1,4 +1,5 @@
 import copy, html
+import base64
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from .security import db_session, current_user, member, editor, reviewer
 from .schemas import (
@@ -168,6 +169,55 @@ def generate_asset(
     )
 
 
+def poster_options(db, workspace_id, asset, data):
+    content = copy.deepcopy(asset.data["content"])
+    changed = data.model_fields_set & {"poster_template", "poster_image_id", "photo_confirmed"}
+    if changed and asset.data["kind"] != "poster":
+        raise HTTPException(422, "照片与模板仅用于海报素材")
+    if "poster_template" in data.model_fields_set:
+        content["poster_template"] = data.poster_template or "heritage"
+    if "poster_image_id" in data.model_fields_set:
+        image_id = data.poster_image_id
+        if image_id:
+            image = get_record(db, workspace_id, "file", image_id)
+            if image.data.get("mime_type") not in {"image/png", "image/jpeg", "image/webp"}:
+                raise HTTPException(422, "海报照片必须是PNG、JPEG或WebP图片")
+            if not data.photo_confirmed:
+                raise HTTPException(422, "请确认照片真实且有权用于本次宣传")
+        content["poster_image_id"] = image_id
+        content["photo_confirmed"] = bool(image_id and data.photo_confirmed)
+    return content
+
+
+def poster_svg(db, workspace_id, asset, title, body, content, approved):
+    from .poster import render_poster
+    from .models import Workspace
+
+    photo = None
+    if content.get("poster_image_id"):
+        image = get_record(db, workspace_id, "file", content["poster_image_id"])
+        mime = image.data.get("mime_type")
+        if mime not in {"image/png", "image/jpeg", "image/webp"} or not content.get("photo_confirmed"):
+            raise HTTPException(422, "照片类型或使用确认无效")
+        photo = "data:" + mime + ";base64," + base64.b64encode(image.blob).decode("ascii")
+    workspace = db.get(Workspace, workspace_id)
+    return render_poster(title, body, asset.data["channel"], workspace.name,
+                         template=content.get("poster_template", "heritage"), photo=photo, approved=approved)
+
+
+@router.post("/assets/{id}/preview", dependencies=[Depends(editor)])
+def preview_poster(workspace_id: str, id: str, data: ReviseAsset, db=Depends(db_session)):
+    asset = get_record(db, workspace_id, "asset", id)
+    if asset.data["kind"] != "poster":
+        raise HTTPException(422, "仅海报支持图片预览")
+    content = poster_options(db, workspace_id, asset, data)
+    svg = poster_svg(db, workspace_id, asset, data.title or asset.data["title"], data.body, content, False)
+    return Response(svg, media_type="image/svg+xml", headers={
+        "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
+    })
+
+
 @router.post("/assets/{id}/revise", status_code=201, dependencies=[Depends(editor)])
 def revise_asset(
     workspace_id: str,
@@ -186,7 +236,7 @@ def revise_asset(
     checks = check_content(
         title + "\n" + body, context(db, workspace_id, campaign, plan=public(plan))
     )
-    content = copy.deepcopy(old.data["content"])
+    content = poster_options(db, workspace_id, old, data)
     content["body"] = body
     content["title"] = title
     # Existing generated poster markup is not carried over after the reviewed text changes.
@@ -268,11 +318,7 @@ def export(
         )
         mime = "text/html"
     elif format == "svg":
-        from .poster import render_poster
-        from .models import Workspace
-
-        workspace = db.get(Workspace, workspace_id)
-        output = render_poster(title, body, asset.data["channel"], workspace.name)
+        output = poster_svg(db, workspace_id, asset, title, body, asset.data["content"], True)
         mime = "image/svg+xml"
     else:
         raise HTTPException(422, "不支持的导出格式")
@@ -283,7 +329,7 @@ def export(
         headers={
             "Content-Disposition": f'attachment; filename="asset-{asset.id}.{format}"',
             "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            "Content-Security-Policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
         },
     )
 

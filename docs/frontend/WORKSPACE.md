@@ -47,3 +47,12 @@ npm.cmd run build
 2. A 活动可发布素材已加载 → 切换 B 且 B 加载失败，A 素材不会残留为 B 的可发布项，登记按钮禁用。
 
 这些回归不写入实际业务数据库；完整经营闭环由项目级浏览器验收另行覆盖。
+## 实拍海报
+
+在活动工作室生成海报后，点击“照片与海报设计”，上传 PNG/JPEG/WebP（10 MiB 内）、确认宣传使用权，选择雅绿/暖陶/留白模板并编辑文字。预览带待审核标记；保存创建新素材版本，必须再次审核后才能导出 SVG/PNG。照片按比例完整展示，不生成或改变产品外观。
+
+后端只接受当前商家的图片文件 ID，不读取外部图片 URL；图片内嵌在导出 SVG，转换 PNG 无需公开商家附件。原有无照片海报兼容，移除照片也会创建新版本。
+
+接口：POST assets/{id}/preview 使用 ReviseAsset 数据返回不持久化的草稿 SVG；POST assets/{id}/revise 新增可选 poster_template（heritage/warm/minimal）、poster_image_id（null 移除）和 photo_confirmed（关联照片时必须 true）。照片与模板保存在 content 中。预览要求编辑权限，不能绕过审核导出。
+
+验证：新增后端测试覆盖照片归属、文件类型、使用确认、旧版本不可导出、新版待审核、审核后照片嵌入及移除。tests/frontend/photo_posters_acceptance.py 在 8011 的独立验收库上运行，使用合成图片和模板生成，不写真实商家数据；实际检查了手机界面、预览、保存、审批和 PNG 下载。
