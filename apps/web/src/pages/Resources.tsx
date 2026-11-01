@@ -15,6 +15,7 @@ import {
   Download,
 } from "lucide-react";
 import { useApp } from "../context";
+import AttachmentPreview from "../components/AttachmentPreview";
 import { useResource } from "../hooks";
 import { request, post, patch, download } from "../api";
 import type { Knowledge, Offering } from "../types";
@@ -107,6 +108,11 @@ export function KnowledgePage() {
     },
     [],
   );
+  const filteredKnowledge = (data || []).filter((k) =>
+    (k.title + k.content + k.source)
+      .toLowerCase()
+      .includes(query.trim().toLowerCase()),
+  );
   async function toggle(k: Knowledge) {
     try {
       await patch(path("/knowledge/" + k.id), { confirmed: !k.confirmed });
@@ -120,7 +126,7 @@ export function KnowledgePage() {
     <>
       <SectionTitle
         eyebrow="BRAND KNOWLEDGE / 品牌知识库"
-        title="让每一句表达，都有来处。"
+        title="品牌知识库"
         description="记录真实的工艺、品牌与授权素材。生成内容只引用已确认的营销资料。"
         action={
           <Button
@@ -182,78 +188,82 @@ export function KnowledgePage() {
               </Button>
             }
           />
+        ) : !filteredKnowledge.length ? (
+          <Empty
+            title="没有匹配的资料"
+            description="试试其他标题、内容或来源关键词。"
+            action={
+              <Button variant="secondary" onClick={() => setQuery("")}>
+                清空搜索
+              </Button>
+            }
+          />
         ) : (
           <div className="knowledge-grid">
-            {data
-              .filter((k) =>
-                (k.title + k.content + k.source)
-                  .toLowerCase()
-                  .includes(query.toLowerCase()),
-              )
-              .map((k) => (
-                <article className="knowledge-card" key={k.id}>
-                  <div className="card-top">
-                    <span className="resource-icon">
-                      <FileText size={20} />
-                    </span>
-                    <Badge tone={k.confirmed ? "green" : "ochre"}>
-                      {k.confirmed ? "已确认" : "待确认"}
-                    </Badge>
-                  </div>
-                  <h3>{k.title}</h3>
-                  <p>{k.content}</p>
-                  <div className="source-line">来源：{k.source}</div>
-                  <div className="tag-row">
-                    <Badge>
+            {filteredKnowledge.map((k) => (
+              <article className="knowledge-card" key={k.id}>
+                <AttachmentPreview fileId={k.file_id} label={k.title} />
+                <div className="card-top">
+                  <span className="resource-icon">
+                    <FileText size={20} />
+                  </span>
+                  <Badge tone={k.confirmed ? "green" : "ochre"}>
+                    {k.confirmed ? "已确认" : "待确认"}
+                  </Badge>
+                </div>
+                <h3>{k.title}</h3>
+                <p>{k.content}</p>
+                <div className="source-line">来源：{k.source}</div>
+                <div className="tag-row">
+                  <Badge>
+                    {
                       {
-                        {
-                          fact: "文化 / 工艺事实",
-                          brand: "商家信息",
-                          material: "素材",
-                        }[k.kind]
-                      }
-                    </Badge>
-                    <Badge>
-                      {k.usage_scope === "marketing" ? "营销可用" : "仅内部"}
-                    </Badge>
-                  </div>
-                  <footer>
-                    <button className="text-button" onClick={() => toggle(k)}>
-                      {k.confirmed ? "撤销确认" : "确认资料"}
-                    </button>
-                    {k.file_id && (
-                      <button
-                        className="icon-button"
-                        aria-label="下载附件"
-                        onClick={() =>
-                          download(
-                            path("/files/" + k.file_id),
-                            "资料附件",
-                          ).catch((e) => notify(e.message, "error"))
-                        }
-                      >
-                        <Download size={16} />
-                      </button>
-                    )}
+                        fact: "文化 / 工艺事实",
+                        brand: "商家信息",
+                        material: "素材",
+                      }[k.kind]
+                    }
+                  </Badge>
+                  <Badge>
+                    {k.usage_scope === "marketing" ? "营销可用" : "仅内部"}
+                  </Badge>
+                </div>
+                <footer>
+                  <button className="text-button" onClick={() => toggle(k)}>
+                    {k.confirmed ? "撤销确认" : "确认资料"}
+                  </button>
+                  {k.file_id && (
                     <button
                       className="icon-button"
-                      aria-label={"编辑" + k.title}
-                      onClick={() => {
-                        changeEditor(k);
-                      }}
+                      aria-label="下载附件"
+                      onClick={() =>
+                        download(path("/files/" + k.file_id), "资料附件").catch(
+                          (e) => notify(e.message, "error"),
+                        )
+                      }
                     >
-                      <Pencil size={16} />
+                      <Download size={16} />
                     </button>
-                    <button
-                      className="icon-button danger"
-                      aria-label={"删除" + k.title}
-                      onClick={() => setDeleting(k)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </footer>
-                </article>
-              ))}
+                  )}
+                  <button
+                    className="icon-button"
+                    aria-label={"编辑" + k.title}
+                    onClick={() => {
+                      changeEditor(k);
+                    }}
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    className="icon-button danger"
+                    aria-label={"删除" + k.title}
+                    onClick={() => setDeleting(k)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </footer>
+              </article>
+            ))}
           </div>
         )}
       </Panel>
@@ -421,7 +431,7 @@ export function OfferingsPage() {
     <>
       <SectionTitle
         eyebrow="PRODUCTS & EXPERIENCES / 产品与课程"
-        title="把匠心，变成可以拥有的体验。"
+        title="产品与课程"
         description="产品销售与课程报名分开管理，让每一次传播都有明确的承接入口。"
         action={
           <Button onClick={() => setEditing(null)}>

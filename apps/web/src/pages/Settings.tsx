@@ -45,7 +45,7 @@ export default function SettingsPage() {
     <>
       <SectionTitle
         eyebrow="WORKSPACE SETTINGS / 商家设置"
-        title="一个有边界，也有秩序的协作空间。"
+        title="商家设置"
         description="管理成员、了解服务状态，查看每一次关键操作与生成任务。"
       />
       <div className="settings-grid">

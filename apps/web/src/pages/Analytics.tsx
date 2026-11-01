@@ -153,7 +153,7 @@ export default function AnalyticsPage() {
     <>
       <SectionTitle
         eyebrow="ANALYTICS & LEARNING / 数据与复盘"
-        title="看见发生了什么，再讨论为什么。"
+        title="数据与复盘"
         description="统一记录渠道数据，保留来源与归因边界，用真实经营记录支持下一步判断。"
         action={
           <div className="inline">

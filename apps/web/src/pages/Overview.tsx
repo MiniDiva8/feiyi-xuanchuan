@@ -3,15 +3,14 @@ import {
   ArrowRight,
   Plus,
   BookOpen,
+  Package,
   Flag,
   ClipboardCheck,
-  ChartNoAxesCombined,
-  Package,
-  Leaf,
-  Coins,
   Eye,
-  ShoppingBag,
+  Coins,
   Users,
+  Layers,
+  CalendarDays,
 } from "lucide-react";
 import { useApp } from "../context";
 import { useResource } from "../hooks";
@@ -25,11 +24,23 @@ import {
   Loading,
   Notice,
   Empty,
-  Status,
   num,
   money,
   date,
 } from "../components/UI";
+const actionNames: Record<string, string> = {
+  create: "创建了档案",
+  update: "更新了档案",
+  delete: "移除了资料",
+  approve: "批准了一个版本",
+  reject: "提出了修改意见",
+  generate: "生成了内容草稿",
+  revise: "保存了新版本",
+  "manual-publication": "登记了发布作品",
+  "csv-import": "导入了经营记录",
+  "next-round": "创建了下一轮活动",
+  export: "导出了审核素材",
+};
 export default function OverviewPage() {
   const { path, workspace, epoch, go } = useApp();
   const { data, loading, error } = useResource<Overview>(
@@ -37,112 +48,136 @@ export default function OverviewPage() {
     epoch,
   );
   if (loading) return <Loading />;
-  if (error || !data) return <Notice tone="error">{error}</Notice>;
+  if (error || !data)
+    return (
+      <Notice tone="error">
+        {error || "暂时无法读取经营概览，请稍后刷新。"}
+      </Notice>
+    );
   const stats = data.stats;
   const metrics = [
     {
       label: "累计曝光",
       value: num(stats.impressions),
       icon: Eye,
-      note: "来自已录入的渠道数据",
+      note: "已录入的渠道数据",
     },
     {
       label: "成交金额",
       value: money(stats.revenue),
       icon: Coins,
-      note: "录入金额，非利润或增量贡献",
+      note: "商家录入金额，非利润",
     },
     {
-      label: "产品订单",
-      value: num(stats.orders),
-      icon: ShoppingBag,
-      note: "各渠道录入订单合计",
+      label: "营销活动",
+      value: num(stats.campaigns),
+      icon: Flag,
+      note: "保留每一轮策划与版本",
     },
     {
-      label: "课程报名",
-      value: num(stats.registrations),
-      icon: Users,
-      note: "各渠道录入报名合计",
+      label: "待审核版本",
+      value: num(stats.pending_review),
+      icon: ClipboardCheck,
+      note: "方案与素材待商家确认",
     },
   ];
   return (
     <>
       <SectionTitle
-        eyebrow="BUSINESS OVERVIEW / 经营概览"
-        title={workspace.name + "，今天也让好手艺被看见。"}
-        description="从文化资料到下一次传播，把经营的每一步留在这里。"
+        eyebrow="YOUR BUSINESS, AT A GLANCE"
+        title="经营工作台"
+        description={workspace.name + "，今天也让好手艺被看见。"}
         action={
-          <Button onClick={() => go("campaigns")}>
+          <Button
+            disabled={!["owner", "editor"].includes(workspace.role)}
+            onClick={() => go("campaign-new")}
+          >
             <Plus size={17} />
             创建营销活动
           </Button>
         }
       />
-      <div className="overview-hero">
-        <div>
-          <div className="hero-kicker">
-            <Leaf size={15} /> 一份匠心，多一种抵达
-          </div>
-          <h2>
-            好的故事，
-            <br />
-            从真实的手艺开始。
-          </h2>
-          <p>
-            先把你的品牌、工艺与产品记录下来，
-            <br />
-            再为它们找到合适的表达和人群。
-          </p>
-          <button onClick={() => go("knowledge")}>
-            完善品牌知识库 <ArrowUpRight size={17} />
-          </button>
-        </div>
-        <div className="hero-visual" aria-hidden="true">
-          <div className="hero-ring ring-one" />
-          <div className="hero-ring ring-two" />
-          <div className="hero-ring ring-three" />
-          <div className="hero-script">
-            传<br />承
-          </div>
-          <span>CRAFTED WITH PURPOSE</span>
-          <div className="hero-seal">
-            手作
-            <br />
-            有声
-          </div>
-        </div>
-        <div className="hero-side">
-          <span>你的营销工作流</span>
-          <strong>
-            有据可依
-            <br />
-            有序推进
-          </strong>
-          <p>资料 → 策划 → 审核 → 发布 → 复盘</p>
-          <Badge tone="light">
-            {data.connections.ai_configured
-              ? "AI 服务已配置"
-              : "当前为模板草稿模式"}
-          </Badge>
-        </div>
-      </div>
-      <Preparation key={workspace.id} overview={data} />
       <div className="metrics-grid">
-        {metrics.map((m) => (
-          <div className="metric-card" key={m.label}>
+        {metrics.map((metric, index) => (
+          <div className={"metric-card metric-" + index} key={metric.label}>
             <div>
-              <span>{m.label}</span>
-              <m.icon size={18} />
+              <span>{metric.label}</span>
+              <span className="metric-icon">
+                <metric.icon size={18} />
+              </span>
             </div>
-            <strong>{m.value}</strong>
-            <small>{m.note}</small>
+            <strong>{metric.value}</strong>
+            <small>
+              <i />
+              {metric.note}
+            </small>
           </div>
         ))}
       </div>
-      <div className="dashboard-columns">
+      <div className="overview-opening">
+        <section className="desk-hero">
+          <div>
+            <span className="eyebrow">HERITAGE IN EVERYDAY LIFE</span>
+            <h2>
+              好手艺，
+              <br />
+              值得被认真讲述。
+            </h2>
+            <p>
+              把一件产品、一堂体验课，
+              <br />
+              变成下一场有据可依的传播。
+            </p>
+            <button onClick={() => go("campaign-new")}>
+              开始一次营销活动 <ArrowUpRight size={17} />
+            </button>
+          </div>
+          <span className="desk-hero-caption">CRAFT / STORY / CONNECTION</span>
+        </section>
         <Panel
-          title="营销活动"
-          subtitle="从一个明确目标，开始一次有效沟通"
+          title="今天，从这里开始"
+          subtitle="常用入口，让工作有序推进"
+          className="launch-panel"
+        >
+          <div className="launch-actions">
+            {[
+              {
+                icon: BookOpen,
+                title: "完善品牌档案",
+                text: "真实资料与可用素材",
+                page: "knowledge",
+              },
+              {
+                icon: Package,
+                title: "维护产品与课程",
+                text: "价格、库存和报名入口",
+                page: "offerings",
+              },
+              {
+                icon: Users,
+                title: "记录渠道数据",
+                text: "账号快照与历史变化",
+                page: "channels",
+              },
+            ].map((item) => (
+              <button key={item.page} onClick={() => go(item.page)}>
+                <span className="launch-icon">
+                  <item.icon size={21} />
+                </span>
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.text}</small>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
+            ))}
+          </div>
+        </Panel>
+      </div>
+      <div className="overview-content">
+        <Panel
+          title="最近的营销活动"
+          subtitle="每一轮行动，都留有来处与进度"
           action={
             <button className="text-button" onClick={() => go("campaigns")}>
               全部活动 <ArrowRight size={15} />
@@ -151,28 +186,38 @@ export default function OverviewPage() {
         >
           {data.recent_campaigns.length ? (
             <div className="campaign-mini-list">
-              {data.recent_campaigns.slice(0, 4).map((c) => (
-                <button onClick={() => go("studio", c.id)} key={c.id}>
+              {data.recent_campaigns.slice(0, 4).map((campaign) => (
+                <button
+                  key={campaign.id}
+                  onClick={() => go("studio", campaign.id)}
+                >
                   <span className="mini-icon">
                     <Flag size={20} />
                   </span>
                   <div>
-                    <strong>{c.name}</strong>
+                    <strong>{campaign.name}</strong>
                     <small>
-                      {c.start_date} — {c.end_date}
+                      <CalendarDays size={12} />
+                      {campaign.start_date} — {campaign.end_date}
                     </small>
                   </div>
-                  <Status value={c.status} />
+                  <Badge tone="neutral">
+                    {campaign.status === "draft"
+                      ? "活动草稿"
+                      : campaign.status === "active"
+                        ? "进行中"
+                        : campaign.status}
+                  </Badge>
                   <ArrowUpRight size={17} />
                 </button>
               ))}
             </div>
           ) : (
             <Empty
-              title="你的第一场活动，正在酝酿"
-              description="选择一件产品或一堂体验课，设定目标、渠道与预算。"
+              title="为你的品牌，开启第一场活动"
+              description="先选定推广目标，再把策划、素材与审核放到同一个工作室。"
               action={
-                <Button variant="secondary" onClick={() => go("campaigns")}>
+                <Button variant="secondary" onClick={() => go("campaign-new")}>
                   <Plus size={16} />
                   创建第一场活动
                 </Button>
@@ -180,71 +225,36 @@ export default function OverviewPage() {
             />
           )}
         </Panel>
-        <Panel title="把工作台用起来" subtitle="四步，建立有积累的营销习惯">
-          <div className="onboarding">
-            {[
-              {
-                icon: BookOpen,
-                title: "记录品牌与工艺",
-                text: "填写来源，确认可用于宣传的事实",
-                page: "knowledge",
-              },
-              {
-                icon: Package,
-                title: "完善产品与课程",
-                text: "价格、库存、名额与真实承接入口",
-                page: "offerings",
-              },
-              {
-                icon: ClipboardCheck,
-                title: "策划并审核内容",
-                text: "批准具体版本，再导出和登记发布",
-                page: "campaigns",
-              },
-              {
-                icon: ChartNoAxesCombined,
-                title: "用真实数据复盘",
-                text: "区分观察事实、推测与下一步验证",
-                page: "analytics",
-              },
-            ].map((s, i) => (
-              <button key={s.title} onClick={() => go(s.page)}>
-                <span className="step-number">0{i + 1}</span>
-                <s.icon size={19} />
-                <div>
-                  <strong>{s.title}</strong>
-                  <small>{s.text}</small>
-                </div>
-                <ArrowUpRight size={15} />
-              </button>
-            ))}
-          </div>
-        </Panel>
+        <Preparation key={workspace.id} overview={data} />
       </div>
       <div className="dashboard-columns lower">
-        <Panel title="最近动态" subtitle="商家空间中的真实操作记录">
+        <Panel title="最近动态" subtitle="商家空间内的真实操作记录">
           {data.activity.length ? (
             <div className="activity-list">
-              {data.activity.slice(0, 5).map((a) => (
-                <div key={a.id}>
+              {data.activity.slice(0, 5).map((item) => (
+                <div key={item.id}>
                   <i />
                   <div>
-                    <strong>{a.actor_name}</strong> <span>{a.action}</span>
-                    <small>{date(a.created_at)}</small>
+                    <strong>{item.actor_name}</strong>{" "}
+                    <span>{actionNames[item.action] || item.action}</span>
+                    <small>{date(item.created_at)}</small>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="quiet-empty">
-              还没有操作记录。创建第一份资料后，操作会记录在这里。
+              从第一份资料开始，你的操作记录会留在这里。
             </div>
           )}
         </Panel>
-        <Panel title="服务连接" subtitle="清晰了解当前工作边界">
+        <Panel title="工作空间状态" subtitle="清晰了解当前配置与服务边界">
           <div className="connection-list">
             <div>
-              <span>内容生成</span>
+              <span>
+                <Layers size={15} />
+                内容生成
+              </span>
               <Badge tone={data.connections.ai_configured ? "green" : "ochre"}>
                 {data.connections.ai_configured ? "AI 已配置" : "模板草稿"}
               </Badge>
@@ -258,8 +268,10 @@ export default function OverviewPage() {
               <strong>商家外部承接入口</strong>
             </div>
             <div>
-              <span>待审核版本</span>
-              <strong>{stats.pending_review || 0} 份</strong>
+              <span>经营记录</span>
+              <strong>
+                {num(stats.orders)} 笔订单 / {num(stats.registrations)} 人报名
+              </strong>
             </div>
           </div>
         </Panel>

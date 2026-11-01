@@ -59,11 +59,15 @@ const objectives = {
   registration: "课程报名",
   awareness: "品牌认知",
 };
-export function CampaignsPage() {
+export function CampaignsPage({
+  createInitially = false,
+}: {
+  createInitially?: boolean;
+}) {
   const { path, epoch, notify, refresh, go } = useApp();
   const campaigns = useResource<Campaign[]>(path("/campaigns"), epoch),
     offerings = useResource<Offering[]>(path("/offerings"), epoch);
-  const [create, setCreate] = useState(false),
+  const [create, setCreate] = useState(createInitially),
     [filter, setFilter] = useState("all");
   const fields: Field[] = [
     {
@@ -127,7 +131,7 @@ export function CampaignsPage() {
     <>
       <SectionTitle
         eyebrow="CAMPAIGN WORKSPACE / 营销活动"
-        title="让每一次传播，都有明确的方向。"
+        title="营销活动"
         description="从简报出发，完成策划、审核与发布，用真实数据为下一轮留下依据。"
         action={
           <Button onClick={() => setCreate(true)}>
@@ -197,7 +201,13 @@ export function CampaignsPage() {
                   <span>
                     计划预算 <strong>{money(c.budget)}</strong>
                   </span>
-                  <Status value={c.status} />
+                  <Badge tone="neutral">
+                    {c.status === "draft"
+                      ? "活动草稿"
+                      : c.status === "active"
+                        ? "进行中"
+                        : c.status}
+                  </Badge>
                 </footer>
                 <div className="campaign-channels">
                   {c.channels.map((ch) => (
@@ -209,7 +219,14 @@ export function CampaignsPage() {
         </div>
       )}
       {create && (
-        <Modal title="创建营销活动" onClose={() => setCreate(false)} wide>
+        <Modal
+          title="创建营销活动"
+          onClose={() => {
+            setCreate(false);
+            if (createInitially) go("campaigns");
+          }}
+          wide
+        >
           <Form
             fields={fields}
             initial={{
@@ -217,7 +234,10 @@ export function CampaignsPage() {
               start_date: new Date().toISOString().slice(0, 10),
             }}
             submitLabel="创建并进入工作室"
-            onCancel={() => setCreate(false)}
+            onCancel={() => {
+              setCreate(false);
+              if (createInitially) go("campaigns");
+            }}
             onSubmit={async (d) => {
               validateBrief(d, offerings.data || []);
               const c = await post<Campaign>(path("/campaigns"), {

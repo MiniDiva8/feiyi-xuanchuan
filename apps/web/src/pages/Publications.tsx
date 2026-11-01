@@ -92,7 +92,7 @@ export default function PublicationsPage() {
     <>
       <SectionTitle
         eyebrow="REVIEW & PUBLICATION / 审核与发布"
-        title="认真确认，再与世界见面。"
+        title="审核与发布"
         description="先审核具体素材版本，再人工发布到渠道，最后登记真实作品链接与时间。"
         action={
           <Button
