@@ -56,3 +56,15 @@ npm.cmd run build
 接口：POST assets/{id}/preview 使用 ReviseAsset 数据返回不持久化的草稿 SVG；POST assets/{id}/revise 新增可选 poster_template（heritage/warm/minimal）、poster_image_id（null 移除）和 photo_confirmed（关联照片时必须 true）。照片与模板保存在 content 中。预览要求编辑权限，不能绕过审核导出。
 
 验证：新增后端测试覆盖照片归属、文件类型、使用确认、旧版本不可导出、新版待审核、审核后照片嵌入及移除。tests/frontend/photo_posters_acceptance.py 在 8011 的独立验收库上运行，使用合成图片和模板生成，不写真实商家数据；实际检查了手机界面、预览、保存、审批和 PNG 下载。
+
+## 渠道账号与数据快照
+
+导航“渠道账号”支持抖音、B站、小红书、快手、微信视频号。保存昵称、平台账号标识及可选HTTPS主页，不收集账号密码。微信视频号可无公开链接。昵称及主页可编辑，平台和账号标识不可改成另一个账号，避免混用历史记录。
+
+运营数据为手动累计快照：日期、来源、粉丝、累计播放/阅读、点赞、评论、分享、作品总数和可选最近作品日期。缺失指标留空显示未提供，非零；历史累计值不相加。粉丝变化是最近两次快照差值，不冒称单日增量。每账号每天一条，禁止重复；负数、未来日期及不匹配的主页域名被拒绝。
+
+当前未连接官方自动同步，不获取密码、不爬取后台、不承诺实时数据。自动同步下一步需要各平台开发者应用、数据能力准入和商家授权；先前实测AI接口的密钥与社交平台授权无关。
+
+API：GET/POST channels，PATCH channels/{id}，POST channels/{id}/snapshots，均位于 /api/workspaces/{workspace_id}/ 下，读取要求成员权限，写入要求编辑权限。响应 sync_status=not_connected，source_type=manual；快照只属于当前商家与账号。数据不会重复并入现有营销活动经营指标。
+
+验收：50项AI/后端/闭环回归通过，前端6项测试与生产构建通过；真实浏览器测试使用独立QA库，验证添加无主页视频号、两次快照、缺失值、粉丝变化和375px手机无横向溢出。测试入口 tests/frontend/channels_acceptance.py。

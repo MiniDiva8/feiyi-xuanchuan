@@ -16,6 +16,7 @@ from .routes_auth import router as auth_router
 from .routes_workspace import router as workspace_router
 from .routes_workflow import router as workflow_router
 from .routes_data import router as data_router
+from .routes_channels import router as channels_router
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -121,7 +122,7 @@ def create_app(database_url=None, storage_path=None):
     def health():
         return {"ok": True}
 
-    for router in (auth_router, workspace_router, workflow_router, data_router):
+    for router in (auth_router, workspace_router, workflow_router, data_router, channels_router):
         app.include_router(router)
     dist = ROOT / "apps/web/dist"
 
