@@ -24,6 +24,24 @@ def context():
 
 
 class EngineTests(unittest.TestCase):
+    def test_optional_thinking_mode_is_explicit_and_validated(self):
+        eng = self.engine()
+        self.configure()
+        for mode in ('', 'enabled', 'disabled'):
+            with patch.dict('os.environ', {'MARKETING_AI_THINKING': mode}):
+                with patch.object(eng, '_open', return_value=self.provider('{}')) as transport:
+                    eng._model({}, 'test', {})
+                body = json.loads(transport.call_args.args[0].data)
+                if mode:
+                    self.assertEqual(body['thinking'], {'type': mode})
+                else:
+                    self.assertNotIn('thinking', body)
+        with patch.dict('os.environ', {'MARKETING_AI_THINKING': 'invalid'}):
+            with patch.object(eng, '_open') as transport:
+                with self.assertRaises(RuntimeError):
+                    eng._model({}, 'test', {})
+                transport.assert_not_called()
+
     def setUp(self):
         self.env = patch.dict('os.environ', {'MARKETING_AI_API_KEY': '', 'MARKETING_AI_MODEL': '',
                                            'MARKETING_AI_BASE_URL': 'https://provider.example/v1'}, clear=False)

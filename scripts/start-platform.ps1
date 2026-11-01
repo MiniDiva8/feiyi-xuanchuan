@@ -6,13 +6,21 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
+$portablePython = Join-Path $projectRoot '.artifacts\runtime\python312\python.exe'
+if (Test-Path -LiteralPath $portablePython) {
+    $pythonPath = $portablePython
+}
 $webPath = Join-Path $projectRoot 'apps\web'
 Set-Location -LiteralPath $projectRoot
 if (-not (Test-Path -LiteralPath $pythonPath)) {
+    & python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)"
+    if ($LASTEXITCODE -ne 0) { throw '需要 Python 3.12 或更高版本，请安装后重试。' }
     & python -m venv (Join-Path $projectRoot '.venv')
     if ($LASTEXITCODE -ne 0) { throw '无法创建虚拟环境，请安装 Python 3.12+。' }
     $Install = $true
 }
+& $pythonPath -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)"
+if ($LASTEXITCODE -ne 0) { throw '项目运行环境版本过低，需要 Python 3.12 或更高版本。' }
 if ($Install) {
     & $pythonPath -m pip install -r (Join-Path $projectRoot 'services\api\requirements.txt')
     if ($LASTEXITCODE -ne 0) { throw '后端依赖安装失败。' }
