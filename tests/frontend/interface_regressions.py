@@ -19,7 +19,9 @@ def run(base, case):
         asset = {'id': 'asset-a', 'plan_id': 'p', 'kind': 'poster', 'channel': '小红书', 'title': '一堂手作课', 'body': '认识真实的手艺', 'content': {}, 'status': 'draft', 'version': 1, 'generation_mode': 'template', 'checks': []}
         account = {'id': 'ch', 'platform': 'channels', 'name': '青山工坊视频号', 'account_id': 'craft-1', 'profile_url': '', 'snapshots': [], 'latest': None, 'follower_change': None}
 
+        calls = []
         def api(route):
+            calls.append(route.request.url)
             url = route.request.url.split('/api', 1)[1]
             data = []
             if url == '/auth/me':
@@ -83,11 +85,49 @@ def run(base, case):
             page.goto(base + '/#/campaigns/new')
             expect(page.get_by_role('dialog', name='创建营销活动')).to_be_visible()
             page.get_by_role('button', name='取消', exact=True).click()
-            expect(page).to_have_url(re.compile('/#/campaigns$'))
+            expect(page).to_have_url(re.compile('/#/(?:workspaces/w/)?campaigns$'))
             page.goto(base + '/#/knowledge')
             page.get_by_label('切换商家空间').select_option('w2')
             expect(page.locator('main h1')).to_have_text('经营工作台')
             expect(page.locator('main')).to_contain_text('第二工坊')
+        elif case == 'workspace-route':
+            page.goto(base + '/#/overview')
+            page.get_by_label('切换商家空间').select_option('w2')
+            page.locator('.campaign-mini-list button').first.click()
+            expect(page.locator('main h1')).to_have_text(campaign['name'])
+            campaign_url = page.url
+            page.reload()
+            expect(page.get_by_label('切换商家空间')).to_have_value('w2')
+            expect(page.locator('main h1')).to_have_text(campaign['name'])
+            page.get_by_label('切换商家空间').select_option('w')
+            page.go_back()
+            expect(page.get_by_label('切换商家空间')).to_have_value('w2')
+            expect(page.locator('main h1')).to_have_text(campaign['name'])
+            page.go_forward()
+            expect(page.get_by_label('切换商家空间')).to_have_value('w')
+            page.goto(campaign_url)
+            expect(page.get_by_label('切换商家空间')).to_have_value('w2')
+            calls.clear()
+            page.goto(base + '/#/workspaces/foreign/campaigns/campaign-a')
+            expect(page.get_by_text('无权访问此商家空间', exact=True)).to_be_visible()
+            assert not any('/api/workspaces/' in url for url in calls), calls
+            page.get_by_role('button', name='返回可用商家空间').click()
+            expect(page.get_by_label('切换商家空间')).to_have_value('w')
+        elif case == 'modal-shortcut':
+            page.goto(base + '/#/knowledge')
+            page.get_by_role('button', name='新增资料', exact=True).click()
+            editor = page.get_by_role('dialog')
+            editor.get_by_label('资料标题').fill('保留这份尚未保存的草稿')
+            for key in ['Control+k', 'Control+k', 'Meta+k']:
+                page.keyboard.press(key)
+                expect(page.get_by_role('dialog')).to_have_count(1)
+                expect(page.get_by_role('dialog', name='快捷导航')).to_have_count(0)
+                expect(editor.get_by_label('资料标题')).to_have_value('保留这份尚未保存的草稿')
+            editor.get_by_role('button', name='取消', exact=True).click()
+            page.keyboard.press('Control+k')
+            expect(page.get_by_role('dialog', name='快捷导航')).to_be_visible()
+            page.keyboard.press('Escape')
+            expect(page.get_by_role('dialog')).to_have_count(0)
         elif case == 'form-layout':
             entries = [('knowledge', '新增资料'), ('offerings', '新增产品 / 课程'), ('campaigns', '创建营销活动'), ('channels', '添加渠道账号'), ('channels', '记录运营数据'), ('analytics', '录入指标'), ('analytics', '导入 CSV'), ('settings', '添加成员')]
             for width in [768, 375]:
@@ -139,6 +179,6 @@ def run(base, case):
 if __name__ == '__main__':
     a = argparse.ArgumentParser()
     a.add_argument('--base-url', default='http://127.0.0.1:8011')
-    a.add_argument('--case', default='navigation', choices=['navigation', 'channel-edit', 'poster-size', 'poster-upload', 'knowledge-search', 'form-layout'])
+    a.add_argument('--case', default='navigation', choices=['navigation', 'channel-edit', 'poster-size', 'poster-upload', 'knowledge-search', 'form-layout', 'workspace-route', 'modal-shortcut'])
     args = a.parse_args()
     run(args.base_url, args.case)

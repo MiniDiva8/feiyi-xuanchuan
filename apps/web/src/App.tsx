@@ -73,14 +73,19 @@ export default function App() {
     [toast, setToast] = useState<{ message: string; tone: string } | null>(
       null,
     );
-  const go = useCallback((page: string, id?: string) => {
-    const hash = routeHash(page, id);
+  const navigate = useCallback((page: string, id?: string, merchantId = "") => {
+    const hash = routeHash(page, id, merchantId);
     setRoute(parseRoute(hash));
     if (window.location.hash !== hash) window.location.hash = hash;
     setMobile(false);
     setQuick(false);
     window.scrollTo({ top: 0 });
   }, []);
+  const go = useCallback(
+    (page: string, id?: string) =>
+      navigate(page, id, route.workspaceId || workspaceId),
+    [navigate, route.workspaceId, workspaceId],
+  );
   useEffect(() => {
     const change = () => {
       setRoute(parseRoute(window.location.hash));
@@ -120,13 +125,14 @@ export default function App() {
         session
       ) {
         event.preventDefault();
+        if (document.querySelector('[aria-modal="true"]') && !quick) return;
         setQuick((value) => !value);
       }
       if (event.key === "Escape") setMobile(false);
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [session]);
+  }, [session, quick]);
   const notify = useCallback(
       (message: string, tone = "success") => setToast({ message, tone }),
       [],
@@ -152,12 +158,30 @@ export default function App() {
         onSuccess={(value) => {
           setSession(value);
           setWorkspaceId(value.workspaces[0]?.id || "");
-          go("overview");
+          if (!route.workspaceId && route.page === "overview")
+            navigate("overview", undefined, value.workspaces[0]?.id || "");
         }}
       />
     );
+  const requestedWorkspace = route.workspaceId || workspaceId;
+  if (
+    route.workspaceId &&
+    !session.workspaces.some((value) => value.id === route.workspaceId)
+  )
+    return (
+      <div className="boot-error">
+        <Notice tone="error">无权访问此商家空间</Notice>
+        <Button
+          onClick={() =>
+            navigate("overview", undefined, session.workspaces[0]?.id || "")
+          }
+        >
+          返回可用商家空间
+        </Button>
+      </div>
+    );
   const workspace =
-    session.workspaces.find((value) => value.id === workspaceId) ||
+    session.workspaces.find((value) => value.id === requestedWorkspace) ||
     session.workspaces[0];
   if (!workspace) return <Notice>暂无可用商家空间，请重新登录。</Notice>;
   const path = (value: string) => workspacePath(workspace.id, value),
@@ -221,7 +245,7 @@ export default function App() {
                 value={workspace.id}
                 onChange={(event) => {
                   setWorkspaceId(event.target.value);
-                  go("overview");
+                  navigate("overview", undefined, event.target.value);
                   refresh();
                 }}
               >
@@ -437,7 +461,7 @@ export default function App() {
                 });
                 setWorkspaceId(value.id);
                 setCreateWorkspace(false);
-                go("overview");
+                navigate("overview", undefined, value.id);
                 notify("商家空间已创建");
               }}
             />
