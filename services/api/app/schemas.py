@@ -87,6 +87,9 @@ class AssetInput(Instructions):
 class ReviseAsset(Input):
     title: str | None = Field(default=None, max_length=500)
     body: str = Field(min_length=1, max_length=50000)
+    poster_template: Literal["heritage", "warm", "minimal"] | None = None
+    poster_image_id: str | None = None
+    photo_confirmed: bool = False
 
 
 class Reject(Input):

@@ -19,6 +19,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { useApp } from "../context";
+import PosterDesigner from "../components/PosterDesigner";
 import { useResource } from "../hooks";
 import { post, patch, download, downloadPosterPng } from "../api";
 import type { Campaign, Offering, Plan, Asset, Review, Audit } from "../types";
@@ -672,6 +673,7 @@ export function StudioPage({ id }: { id: string }) {
                         ))}
                       </div>
                       <footer className="asset-actions">
+                        {a.kind === "poster" && <PosterDesigner asset={a} />}
                         <Button
                           variant="secondary small"
                           onClick={() => {
