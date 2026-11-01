@@ -74,8 +74,8 @@ API：GET/POST channels，PATCH channels/{id}，POST channels/{id}/snapshots，�
 基于合作人 PR #12 的 8e765d8，包含先前 DeepSeek、首次活动引导、实拍海报与渠道账号功能。仅更新前端及其说明、验收脚本。依赖链保留为草稿 PR，未自动合并到 main。
 
 - 深绿分组导航、统一工作区、品牌登录、真实指标、准备清单、常用入口与活动列表。
-- 稳定的 hash 路径：`#/knowledge`、`#/channels`、`#/campaigns/<id>`；刷新和浏览器前后退可用；`#/campaigns/new` 直接创建，取消后回到列表。
-- Ctrl/Cmd+K 打开功能导航，Escape 关闭；键盘“跳至主要内容”保持原页面。商家切换清空页面状态。
+- 稳定的 hash 路径携带商家身份：`#/workspaces/<商家ID>/knowledge`、`#/workspaces/<商家ID>/campaigns/<活动ID>`；第二商家的活动刷新、前后退和直接访问保持正确空间，无成员权限的地址不发起商家数据请求。原 `#/knowledge`、`#/campaigns/<id>` 等短路径仍兼容；`#/campaigns/new` 直接创建，取消后回到列表。
+- Ctrl/Cmd+K 打开功能导航，Escape 关闭；已有编辑弹窗时不再叠加快捷导航，保留未保存输入；键盘“跳至主要内容”保持原页面。商家切换清空页面状态。
 - 品牌资料显示当前商家附件缩略图，来源/使用范围/确认分别展示；搜索无结果有恢复操作。
 - 实拍海报采用宽幅双栏编辑器，右侧真实服务端预览，底部固定操作区；手机可滚动检查预览。保留原照片、权利确认、新版本审核和导出约束。
 - 渠道昵称/主页可以编辑；平台和账号标识在修改界面保持不可编辑，避免用户提交服务端不允许的修改。缺失指标仍显示未提供。
@@ -101,8 +101,10 @@ python tests/frontend/interface_regressions.py --case knowledge-search
 python tests/frontend/interface_regressions.py --case channel-edit
 python tests/frontend/interface_regressions.py --case poster-size
 python tests/frontend/interface_regressions.py --case form-layout
+python tests/frontend/interface_regressions.py --case workspace-route
+python tests/frontend/interface_regressions.py --case modal-shortcut
 ```
 
-前端10项、生产构建、服务端/AI/契约50项通过；完整浏览器10阶段、首次准备清单失败/重试、渠道快照、照片海报真实PNG下载、异步隔离与新增界面回归通过。`interface_regressions.py --case poster-upload` 另在 Vite5174运行，全部API模拟，验证React StrictMode开发模式的上传/预览。浏览器没有页面脚本错误。服务端测试有一项既存Starlette/httpx弃用提示。
+前端13项、生产构建、服务端/AI/契约50项通过；完整浏览器10阶段、首次准备清单失败/重试、渠道快照、照片海报真实PNG下载、异步隔离与新增界面回归通过。`interface_regressions.py --case poster-upload` 另在 Vite5174运行，全部API模拟，验证React StrictMode开发模式的上传/预览。浏览器没有页面脚本错误。服务端测试有一项既存Starlette/httpx弃用提示。
 
 这些结果证明本地操作与模板模式可用；不代表已部署公网、配置了真实模型、接入自动发布或支付同步。当前GitHub工作流只针对main，依赖分支草稿PR不能声称远端CI已通过。
