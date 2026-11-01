@@ -20,8 +20,10 @@ Base: 8e765d8f088e057c6da7704ebf2879c5d16e0c7f
 - [x] Task1: Baseline npm6tests/build and backend/AI50tests; implement tested native hash navigation, grouped accessible app shell, keyboard quick navigation; no API changes.
 - [x] Task2: Rebuild overview and shared design system; clarify creation actions, real metrics, guide states; refresh login brand composition and add original decorative asset.
 - [x] Task3: Refine resource/catalog/campaign/channel/analytics/publishing/settings pages; wide photo-poster designer with stable preview; preserve all async and approval invariants.
-- [ ] Task4: Browser fullflow+partner preparation/photo/channel suites+async regression; responsive page/dialog checks; independent review and targeted fixes; final build/test; stage frontend-only files and publish dependent draft PR.
+- [x] Task4: Browser fullflow+partner preparation/photo/channel suites+async regression; responsive page/dialog checks; independent review and targeted fixes; final build/test; stage frontend-only files and publish dependent draft PR.
 
 Files: apps/web/src/{App,styles,context}.tsx/ts/css; components/{UI,Preparation,PosterDesigner,QuickNavigation,AttachmentPreview}; pages/_; navigation.mjs and tests/navigation.test.mjs; public/images; tests/frontend/_; docs/frontend/*.
 
 Validation: npm test && npm run build; root Python backend/AI/E2E tests with shared project venv; Playwright fresh QA database and mocked error scenarios. No live provider or merchant data.
+
+Delivery: [Draft PR #14](https://github.com/MiniDiva8/feiyi-xuanchuan/pull/14), based on collaborator PR #12. Final code tested at d5e5fb2; follow-up commits only document verification and delivery. No merge or public deployment.

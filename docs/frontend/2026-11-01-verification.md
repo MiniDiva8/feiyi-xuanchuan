@@ -48,3 +48,5 @@
 - [登录](previews/login-desktop.webp)
 - [实拍海报设计](previews/poster-designer.webp)
 - [渠道快照](previews/channels-desktop.webp)
+
+GitHub交付：[草稿PR #14](https://github.com/MiniDiva8/feiyi-xuanchuan/pull/14)，分支 `codex/MiniDiva8/issue-13-frontend-refresh`；基于合作人PR #12，保持人工评审与依赖集成。原工作区未切换或覆盖。
