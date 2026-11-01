@@ -174,6 +174,47 @@ def test_empty_workspace_auth_and_logout(client):
     assert client.get("/api/auth/me").status_code == 401
 
 
+def test_channel_accounts_snapshots_and_isolation(client):
+    w = register(client)
+    root = f'/api/workspaces/{w}/channels'
+    payload = {'platform': 'douyin', 'name': '手艺工坊', 'account_id': 'craft-123', 'profile_url': 'https://www.douyin.com/user/craft-123'}
+    account = client.post(root, json=payload)
+    assert account.status_code == 201, account.text
+    id = account.json()['id']
+    assert client.patch(root + '/' + id, json={**payload, 'name': '新昵称'}).status_code == 200
+    assert client.patch(root + '/' + id, json={**payload, 'account_id': 'different'}).status_code == 422
+    assert client.post(root, json=payload).status_code == 409
+    assert client.post(root, json={**payload, 'profile_url': 'https://evil.invalid'}).status_code == 422
+    snap = {'date': '2026-10-30', 'source': '创作者后台累计口径', 'followers': 100, 'views': 2000, 'posts': 5}
+    assert client.post(root + f'/{id}/snapshots', json=snap).status_code == 201
+    assert client.post(root + f'/{id}/snapshots', json=snap).status_code == 409
+    assert client.post(root + f'/{id}/snapshots', json={**snap, 'date': '2026-10-31', 'followers': 95}).status_code == 201
+    account = client.get(root).json()[0]
+    assert account['sync_status'] == 'not_connected'
+    assert account['follower_change'] == -5
+    assert account['latest']['views'] == 2000
+    assert account['latest']['likes'] is None
+    assert account['latest']['source_type'] == 'manual'
+    other = client.post('/api/workspaces', json={'name': '其他商家'}).json()['id']
+    assert client.get(f'/api/workspaces/{other}/channels').json() == []
+    assert client.post(f'/api/workspaces/{other}/channels/{id}/snapshots', json=snap).status_code == 404
+
+
+def test_channel_snapshot_validation_and_video_account_without_link(client):
+    w = register(client)
+    root = f'/api/workspaces/{w}/channels'
+    account = client.post(root, json={'platform': 'channels', 'name': '视频号工坊', 'account_id': '视频号名称'}).json()
+    endpoint = root + '/' + account['id'] + '/snapshots'
+    baseline = {'date': '2026-10-31', 'source': '视频号助手'}
+    assert client.post(endpoint, json=baseline).status_code == 422
+    for invalid in ({'followers': True}, {'views': -1}, {'likes': 1.5}, {'followers': 5, 'date': '2099-01-01'}, {'followers': 5, 'latest_post_date': '2026-11-01'}):
+        assert client.post(endpoint, json={**baseline, **invalid}).status_code == 422
+    assert client.post(endpoint, json={**baseline, 'followers': 0}).status_code == 201
+    item = client.get(root).json()[0]
+    assert item['latest']['followers'] == 0
+    assert item['latest']['views'] is None
+
+
 def test_tenant_isolation_including_files_tasks_and_metrics(client):
     w = register(client)
     _, ca, p, a = prepared(client, w)

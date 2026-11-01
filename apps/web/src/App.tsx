@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import {
+  Users,
   LayoutDashboard,
   BookOpen,
   Package,
@@ -28,7 +29,9 @@ import { CampaignsPage, StudioPage } from "./pages/Campaigns";
 import PublicationsPage from "./pages/Publications";
 import AnalyticsPage from "./pages/Analytics";
 import SettingsPage from "./pages/Settings";
+import ChannelsPage from "./pages/Channels";
 const nav = [
+  { id: "channels", label: "渠道账号", icon: Users },
   { id: "overview", label: "经营概览", icon: LayoutDashboard },
   { id: "knowledge", label: "品牌知识库", icon: BookOpen },
   { id: "offerings", label: "产品与课程", icon: Package },
@@ -281,6 +284,8 @@ export default function App() {
           <main id="main-content" key={workspace.id}>
             {page === "overview" ? (
               <OverviewPage />
+            ) : page === "channels" ? (
+              <ChannelsPage />
             ) : page === "knowledge" ? (
               <KnowledgePage />
             ) : page === "offerings" ? (
