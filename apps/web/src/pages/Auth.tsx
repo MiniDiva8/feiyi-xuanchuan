@@ -79,7 +79,7 @@ export default function Auth({
             fields={[
               ...(register
                 ? [
-                    { key: "name", label: "你的姓名", required: true },
+                    { key: "name", label: "昵称", required: true },
                     {
                       key: "workspace_name",
                       label: "商家 / 品牌名称",
