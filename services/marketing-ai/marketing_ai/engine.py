@@ -234,6 +234,11 @@ def _model(ctx, task, example):
                    'response_format': {'type': 'json_object'},
                    'messages': [{'role': 'system', 'content': system},
                                 {'role': 'user', 'content': json.dumps({'task': task, 'data': ctx, 'output_structure': example}, ensure_ascii=False, allow_nan=False)}]}
+        thinking = os.getenv('MARKETING_AI_THINKING', '').strip().lower()
+        if thinking:
+            if thinking not in ('enabled', 'disabled'):
+                raise ValueError('invalid thinking mode')
+            payload['thinking'] = {'type': thinking}
         req = request.Request(base + '/chat/completions', data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
                               headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json', 'Accept': 'application/json'}, method='POST')
         with _open(req, timeout) as response:
