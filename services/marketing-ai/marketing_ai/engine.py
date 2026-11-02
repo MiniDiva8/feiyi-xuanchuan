@@ -381,6 +381,72 @@ def generate_asset(context: dict) -> dict:
             'generation_mode': mode, 'usage': usage}
 
 
+def _decimal_text(value):
+    text = format(value, 'f')
+    return text.rstrip('0').rstrip('.') if '.' in text else text
+
+
+def _review_guidance(ctx, values, records, labels):
+    """Derive aggregate ratios and next steps, never a cohort or causal claim."""
+    if not records:
+        return [], [], [
+            {'action': '先录入本活动发布后的真实经营与传播数据，并保留来源和统计区间。',
+             'metric': '已录入记录数、来源和统计区间完整率'}]
+
+    objective = ctx['campaign'].get('objective')
+    pairs = [('interactions', 'impressions', '互动/曝光计数比')]
+    required = ['impressions', 'interactions', 'spend']
+    suggestions = []
+    if objective == 'sales':
+        required += ['inquiries', 'orders', 'revenue', 'refunds', 'unknown_revenue']
+        pairs.append(('orders', 'inquiries', '订单/咨询计数比'))
+        suggestions.append({
+            'action': '下一轮仅测试一个购买入口位置，保持同渠道、同区间口径并核对交付与退款记录。',
+            'metric': '咨询、订单、退款及实际交付记录；计数比不作为去重转化率'})
+    elif objective == 'registration':
+        required += ['inquiries', 'registrations', 'checkins', 'revenue', 'refunds', 'unknown_revenue']
+        pairs += [('registrations', 'inquiries', '报名/咨询计数比'),
+                  ('checkins', 'registrations', '到场/报名计数比')]
+        suggestions.append({
+            'action': '下一轮仅测试一项报名说明或到店提醒，核对课程场次、名额与实际履约。',
+            'metric': '咨询、报名、到场和退款；按同场次记录，核对去重人数'})
+
+    missing = [labels[key] for key in required if key not in values]
+    limitations = []
+    if missing:
+        description = '、'.join(missing)
+        limitations.append(f'缺少{description}指标；缺失值未知，不能当作0或据此判断经营成效。')
+        suggestions.append({'action': f'补齐{description}，确认统计区间及指标口径后再比较。',
+                            'metric': '上述指标的来源、统计区间与完整率'})
+
+    facts = []
+    if 'unknown_revenue' in values and 'revenue' in values:
+        if values['unknown_revenue'] <= values['revenue']:
+            pairs.append(('unknown_revenue', 'revenue', '归因未知收入占录入收入比'))
+        else:
+            limitations.append('归因未知收入大于录入收入；请核对来源和统计区间，暂不计算占比。')
+    if values.get('unknown_revenue', 0) > 0:
+        suggestions.append({'action': '核对归因未知收入的作品来源与交易凭证；没有证据时继续保留未知归因。',
+                            'metric': '归因未知收入及有来源凭证的交易记录数'})
+
+    for numerator, denominator, label in pairs:
+        if numerator not in values or denominator not in values:
+            continue
+        if values[denominator] == 0:
+            limitations.append(f'{label}的分母为0（{labels[denominator]}），不计算比值；不能解释为0%转化。')
+            continue
+        percentage = values[numerator] / values[denominator] * 100
+        facts.append({
+            'statement': f'{label}：{_decimal_text(Decimal(format(percentage, ".2f")))}%。',
+            'evidence': f'analytics.stats.{numerator}({_decimal_text(values[numerator])}) / '
+                        f'{denominator}({_decimal_text(values[denominator])}) × 100；按录入汇总值计算。'})
+        if percentage > 100:
+            limitations.append(f'{label}超过100%；可能存在重复计数或跨区间记录，须核对口径，不能解释为用户转化率。')
+    if facts:
+        limitations.append('以上比值仅为录入汇总量的算术比值；未证明同一批去重用户、同一统计区间或因果关系，不能当作真实用户转化率。')
+    return facts, limitations, suggestions
+
+
 def build_review(context: dict) -> dict:
     ctx = _context(context)
     analytics = context.get('analytics') or {}
@@ -395,39 +461,46 @@ def build_review(context: dict) -> dict:
               'reservations': '预约', 'leads': '线索', 'orders': '订单', 'revenue': '收入', 'refunds': '退款',
               'registrations': '报名', 'checkins': '到场', 'spend': '记录的营销花费', 'unknown_revenue': '归因未知的收入'}
     values = {key: _number(value, key) for key, value in stats.items() if key in labels or key == 'net_revenue'}
+    # Validate with the shared numeric rules, but calculate from decimal inputs
+    # so subtracting refunds cannot lose cents through binary cancellation.
+    exact = {key: Decimal(str(stats[key])) for key in values}
     records = _number(analytics.get('records', 0), 'records')
     facts = [{'statement': f'本次统计包含{records:g}条已录入数据记录。', 'evidence': f'analytics.records={records:g}'}]
     if records:
         for key, label in labels.items():
             if key in values:
-                facts.append({'statement': f'{label}：{values[key]:g}' + ('元。' if key in ('revenue', 'refunds', 'spend', 'unknown_revenue') else '。'),
-                              'evidence': f'analytics.stats.{key}={values[key]:g}；商家录入/导入数据，未独立核验。'})
+                facts.append({'statement': f'{label}：{_decimal_text(exact[key])}' + ('元。' if key in ('revenue', 'refunds', 'spend', 'unknown_revenue') else '。'),
+                              'evidence': f'analytics.stats.{key}={_decimal_text(exact[key])}；商家录入/导入数据，未独立核验。'})
         if 'revenue' in values and 'refunds' in values:
-            if values['refunds'] > values['revenue']:
+            if exact['refunds'] > exact['revenue']:
                 raise ValueError('refunds exceed revenue')
-            net = values['revenue'] - values['refunds']
-            facts.append({'statement': f'收入扣除退款为{net:g}元。',
-                          'evidence': f'analytics.stats.revenue({values["revenue"]:g}) - refunds({values["refunds"]:g})；不是利润或归因效果。'})
+            net = exact['revenue'] - exact['refunds']
+            facts.append({'statement': f'收入扣除退款为{_decimal_text(net)}元。',
+                          'evidence': f'analytics.stats.revenue({_decimal_text(exact["revenue"])}) - refunds({_decimal_text(exact["refunds"])})；不是利润或归因效果。'})
     limitations = ['数据来自商家录入或导入，未独立核验；统计口径和区间需保持一致。',
                    '缺少完整成本，不能据收入和营销花费认定利润；缺少对照或归因证据，不能认定营销带来收入增长。',
                    '归因未知的收入单独列出，不计作已证明的营销贡献。']
     if not records:
         limitations.insert(0, '尚无实际指标数据，不能评价活动成效；请录入发布后的同口径数据。')
+    derived, data_limitations, suggestions = _review_guidance(ctx, exact, records, labels)
+    facts += derived
+    limitations += data_limitations
     content = {'facts': facts,
                'hypotheses': [{'statement': '受众与报名/购买入口的匹配可能影响咨询与转化，当前数据尚不能验证。',
                                'validation': '下一轮仅调整一个变量，记录同渠道、同区间曝光、咨询和成交/报名。'}],
-               'suggestions': [{'action': '核实每个发布作品的承接入口，并记录独立来源标识。', 'metric': '咨询数、报名/订单数和归因未知收入占比'},
+               'suggestions': suggestions + [{'action': '核实每个发布作品的承接入口，并记录独立来源标识。', 'metric': '咨询数、报名/订单数和归因未知收入占比'},
                                {'action': '补齐实际花费、退款与履约数据，再制定下一轮小规模测试。', 'metric': '数据完整率、花费、退款、到场'}],
                'limitations': limitations}
     # Only numeric vetted stats are shared; analytics free text/foreign channels are not sent.
-    ctx['analytics'] = {'stats': values, 'records': records}
+    ctx['analytics'] = {'stats': values if records else {}, 'records': records}
     generated = _model(ctx, '保留事实，为复盘提出假设和调整建议', content)
     if generated is None:
         return {'content': content, 'generation_mode': 'template', 'usage': dict(_ZERO_USAGE)}
     value, usage = generated
     try:
         content['hypotheses'] = _rows(value.get('hypotheses'), {'statement': _string, 'validation': _string})
-        content['suggestions'] = _rows(value.get('suggestions'), {'action': _string, 'metric': _string})
+        model_suggestions = _rows(value.get('suggestions'), {'action': _string, 'metric': _string})
+        content['suggestions'] += [row for row in model_suggestions if row not in content['suggestions']]
         content['limitations'] = list(dict.fromkeys(limitations + _strings(value.get('limitations', []))))
         _safe_generated(json.dumps({'hypotheses': content['hypotheses'], 'suggestions': content['suggestions']}, ensure_ascii=False), ctx)
         # Provider facts intentionally ignored; observed facts above are deterministic.
