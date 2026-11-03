@@ -68,6 +68,25 @@ class ReviewTests(unittest.TestCase):
         self.assertTrue(any('尚无实际指标数据' in line for line in content['limitations']))
         self.assertTrue(any('录入' in row['action'] for row in content['suggestions']))
 
+    def test_empty_review_only_asks_for_the_first_record_even_with_a_provider(self):
+        cases = {'registration': ('咨询', '报名', '到场'),
+                 'sales': ('咨询', '订单', '收入'),
+                 'awareness': ('曝光', '互动')}
+        for objective, metrics in cases.items():
+            with self.subTest(objective=objective), patch.object(engine, '_model') as provider:
+                ctx = review_context(objective, stats={'revenue': 500}, records=0)
+                result = engine.build_review(ctx)
+                provider.assert_not_called()
+                self.assertEqual(result['generation_mode'], 'template')
+                self.assertEqual(result['usage']['total_tokens'], 0)
+                content = result['content']
+                self.assertEqual([row['evidence'] for row in content['facts']], ['analytics.records=0'])
+                self.assertEqual(content['hypotheses'], [])
+                action, = content['suggestions']
+                for metric in metrics:
+                    self.assertIn(metric, action['action'])
+                self.assertEqual(len(content['limitations']), 1)
+
     def test_unknown_attribution_and_refunds_remain_separate_from_profit(self):
         content = self.content('sales', {'revenue': 0.3, 'refunds': 0.1, 'unknown_revenue': 0.1, 'spend': 0.05})
         net = next(row for row in content['facts'] if row['statement'].startswith('收入扣除退款'))

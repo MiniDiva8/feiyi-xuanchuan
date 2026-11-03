@@ -386,13 +386,8 @@ def _decimal_text(value):
     return text.rstrip('0').rstrip('.') if '.' in text else text
 
 
-def _review_guidance(ctx, values, records, labels):
+def _review_guidance(ctx, values, labels):
     """Derive aggregate ratios and next steps, never a cohort or causal claim."""
-    if not records:
-        return [], [], [
-            {'action': '先录入本活动发布后的真实经营与传播数据，并保留来源和统计区间。',
-             'metric': '已录入记录数、来源和统计区间完整率'}]
-
     objective = ctx['campaign'].get('objective')
     pairs = [('interactions', 'impressions', '互动/曝光计数比')]
     required = ['impressions', 'interactions', 'spend']
@@ -466,23 +461,31 @@ def build_review(context: dict) -> dict:
     exact = {key: Decimal(str(stats[key])) for key in values}
     records = _number(analytics.get('records', 0), 'records')
     facts = [{'statement': f'本次统计包含{records:g}条已录入数据记录。', 'evidence': f'analytics.records={records:g}'}]
-    if records:
-        for key, label in labels.items():
-            if key in values:
-                facts.append({'statement': f'{label}：{_decimal_text(exact[key])}' + ('元。' if key in ('revenue', 'refunds', 'spend', 'unknown_revenue') else '。'),
-                              'evidence': f'analytics.stats.{key}={_decimal_text(exact[key])}；商家录入/导入数据，未独立核验。'})
-        if 'revenue' in values and 'refunds' in values:
-            if exact['refunds'] > exact['revenue']:
-                raise ValueError('refunds exceed revenue')
-            net = exact['revenue'] - exact['refunds']
-            facts.append({'statement': f'收入扣除退款为{_decimal_text(net)}元。',
-                          'evidence': f'analytics.stats.revenue({_decimal_text(exact["revenue"])}) - refunds({_decimal_text(exact["refunds"])})；不是利润或归因效果。'})
+    if not records:
+        actions = {
+            'registration': '先录入这场课的咨询次数、报名次数和到场次数，再生成复盘。',
+            'sales': '先录入这次活动的咨询次数、订单数和收入金额，再生成复盘。',
+            'awareness': '先录入这次宣传的曝光次数和互动次数，再生成复盘。',
+        }
+        action = actions.get(ctx['campaign'].get('objective'), '先录入一条与本次活动目标相关的记录，再生成复盘。')
+        content = {'facts': facts, 'hypotheses': [],
+                   'suggestions': [{'action': action, 'metric': '请记下这条数据对应的日期、渠道和来源。'}],
+                   'limitations': ['尚无实际指标数据，暂时无法评价这次活动的效果。']}
+        return {'content': content, 'generation_mode': 'template', 'usage': dict(_ZERO_USAGE)}
+    for key, label in labels.items():
+        if key in values:
+            facts.append({'statement': f'{label}：{_decimal_text(exact[key])}' + ('元。' if key in ('revenue', 'refunds', 'spend', 'unknown_revenue') else '。'),
+                          'evidence': f'analytics.stats.{key}={_decimal_text(exact[key])}；商家录入/导入数据，未独立核验。'})
+    if 'revenue' in values and 'refunds' in values:
+        if exact['refunds'] > exact['revenue']:
+            raise ValueError('refunds exceed revenue')
+        net = exact['revenue'] - exact['refunds']
+        facts.append({'statement': f'收入扣除退款为{_decimal_text(net)}元。',
+                      'evidence': f'analytics.stats.revenue({_decimal_text(exact["revenue"])}) - refunds({_decimal_text(exact["refunds"])})；不是利润或归因效果。'})
     limitations = ['数据来自商家录入或导入，未独立核验；统计口径和区间需保持一致。',
                    '缺少完整成本，不能据收入和营销花费认定利润；缺少对照或归因证据，不能认定营销带来收入增长。',
                    '归因未知的收入单独列出，不计作已证明的营销贡献。']
-    if not records:
-        limitations.insert(0, '尚无实际指标数据，不能评价活动成效；请录入发布后的同口径数据。')
-    derived, data_limitations, suggestions = _review_guidance(ctx, exact, records, labels)
+    derived, data_limitations, suggestions = _review_guidance(ctx, exact, labels)
     facts += derived
     limitations += data_limitations
     content = {'facts': facts,
@@ -492,7 +495,7 @@ def build_review(context: dict) -> dict:
                                {'action': '补齐实际花费、退款与履约数据，再制定下一轮小规模测试。', 'metric': '数据完整率、花费、退款、到场'}],
                'limitations': limitations}
     # Only numeric vetted stats are shared; analytics free text/foreign channels are not sent.
-    ctx['analytics'] = {'stats': values if records else {}, 'records': records}
+    ctx['analytics'] = {'stats': values, 'records': records}
     generated = _model(ctx, '保留事实，为复盘提出假设和调整建议', content)
     if generated is None:
         return {'content': content, 'generation_mode': 'template', 'usage': dict(_ZERO_USAGE)}

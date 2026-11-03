@@ -45,6 +45,11 @@ def test_persisted_review_keeps_campaign_and_workspace_boundaries(tmp_path, monk
         })
         workspace = owner['workspaces'][0]['id']
         target = campaign(client, workspace, '本轮活动')
+        base = f'/api/workspaces/{workspace}/campaigns/{target}'
+        empty_review = post(client, base + '/reviews/generate', {})
+        assert empty_review['generation_mode'] == 'template'
+        assert empty_review['content']['hypotheses'] == []
+        assert len(empty_review['content']['suggestions']) == 1
         other_campaign = campaign(client, workspace, '其他活动')
         other_workspace = post(client, '/api/workspaces', {'name': '另一个商家'})['id']
         foreign_campaign = campaign(client, other_workspace, '另一商家活动')
@@ -52,7 +57,6 @@ def test_persisted_review_keeps_campaign_and_workspace_boundaries(tmp_path, monk
         metric(client, workspace, other_campaign, 10000)
         metric(client, other_workspace, foreign_campaign, 20000)
 
-        base = f'/api/workspaces/{workspace}/campaigns/{target}'
         review = post(client, base + '/reviews/generate', {})
         assert review['generation_mode'] == 'template'
         statements = [row['statement'] for row in review['content']['facts']]
@@ -69,6 +73,7 @@ def test_persisted_review_keeps_campaign_and_workspace_boundaries(tmp_path, monk
         second = post(client, base + '/reviews/generate', {})
         assert second['id'] != review['id']
         history = client.get(base + '/reviews').json()
+        assert next(row for row in history if row['id'] == empty_review['id'])['content'] == empty_review['content']
         assert next(row for row in history if row['id'] == review['id'])['content'] == review['content']
         assert any(row['statement'] == '咨询：40。' for row in second['content']['facts'])
         assert client.get(f'/api/workspaces/{other_workspace}/campaigns/{target}/reviews').status_code == 404
