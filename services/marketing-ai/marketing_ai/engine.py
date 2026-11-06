@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 _PROVIDER_ERROR = '模型生成未完成，请检查配置或稍后重试；未回退为模板结果。'
 _ZERO_USAGE = {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}
 _IDENTITY = re.compile(r'(?:国家级|省级|市级)?(?:非遗代表性传承人|非遗传承人|非物质文化遗产代表性传承人)|国家级非遗|百年老字号|中华老字号|UNESCO|联合国教科文组织', re.I)
-_GUARANTEE = re.compile(r'保证.{0,8}(?:赚钱|盈利|效果|成功|治愈)|100[%％].{0,6}(?:赚钱|有效|成功|转化)|全网第一|全国第一|稳赚|包治|零风险')
+_GUARANTEE = re.compile(r'保证.{0,8}(?:赚钱|盈利|效果|成功|治愈|爆款|爆火)|100[%％].{0,6}(?:赚钱|有效|成功|转化)|必火|必爆|全网第一|全国第一|稳赚|包治|零风险')
 
 
 def _text(value, limit=6000):
@@ -48,7 +48,7 @@ def _context(context):
     field_allowlist = {
         'campaign': ('id', 'workspace_id', 'name', 'objective', 'audience', 'start_date', 'end_date', 'budget', 'channels', 'notes', 'offering_id'),
         'offering': ('id', 'workspace_id', 'kind', 'name', 'description', 'price', 'quantity', 'location', 'delivery', 'conversion_url'),
-        'plan': ('id', 'workspace_id', 'campaign_id', 'content'),
+        'plan': ('id', 'workspace_id', 'campaign_id', 'status', 'content'),
     }
     for name, fields in field_allowlist.items():
         item = context.get(name)
@@ -66,8 +66,10 @@ def _context(context):
     if ctx['offering']:
         _number(ctx['offering'].get('price', 0), 'price')
         _number(ctx['offering'].get('quantity', 0), 'quantity')
-        conversion = urlsplit(_text(ctx['offering'].get('conversion_url')))
-        if conversion.scheme not in ('http', 'https') or not conversion.netloc or conversion.username or conversion.password:
+        conversion_text = _text(ctx['offering'].get('conversion_url')).strip()
+        conversion = urlsplit(conversion_text)
+        missing_script_url = context.get('kind') == 'script' and not conversion_text
+        if not missing_script_url and (conversion.scheme not in ('http', 'https') or not conversion.netloc or conversion.username or conversion.password):
             raise ValueError('offering requires an http(s) conversion URL')
     ctx['knowledge'] = []
     for item in context.get('knowledge') or []:
@@ -345,6 +347,8 @@ def generate_asset(context: dict) -> dict:
     kind = ctx['kind'] or 'copy'
     if kind not in ('copy', 'poster', 'script'):
         raise ValueError('kind must be copy, poster or script')
+    if kind == 'script':
+        return _generate_script(ctx)
     title = (ctx['offering'] or {}).get('name') or ctx['campaign'].get('name') or '活动草稿'
     details = '\n'.join(_offering_lines(ctx))
     fact_lines = '\n'.join(item['content'] for item in ctx['knowledge'][:3])
@@ -355,9 +359,6 @@ def generate_asset(context: dict) -> dict:
         body = f'{title}\n看见手艺，了解项目\n{details}\n{fact_lines}'
         content = {'headline': title, 'subtitle': '看见手艺，了解项目', 'details': details, 'cta': _offering_lines(ctx)[-1],
                    'layout': '主标题 / 实物或体验照片（需授权） / 项目详情 / 承接入口', 'evidence': _evidence(ctx)}
-    else:
-        body = f'镜头1（0—5秒）：展示{title}真实细节，配字幕项目名称。\n镜头2（5—20秒）：记录实际制作/体验过程，避免摆拍冒充历史。\n镜头3（20—30秒）：展示以下详情和入口。\n{details}\n{fact_lines}'
-        content = {'duration_seconds': 30, 'shots': body.split('\n')[:3], 'details': details, 'evidence': _evidence(ctx)}
     draft = {'title': title, 'body': body, 'content': content}
     generated = _model(ctx, f'生成{kind}素材草稿，用于{ctx["channel"] or "待确认渠道"}', draft)
     usage = dict(_ZERO_USAGE)
@@ -378,6 +379,41 @@ def generate_asset(context: dict) -> dict:
             raise RuntimeError(_PROVIDER_ERROR) from None
         mode = 'ai'
     return {'title': title, 'body': body, 'content': content, 'checks': check_content(title + '\n' + body, ctx),
+            'generation_mode': mode, 'usage': usage}
+
+
+def _generate_script(ctx):
+    from .shooting_script import prepare, render, validate
+
+    draft, candidates = prepare(ctx)
+    example = {'duration_seconds': 30, 'storyboard': draft['storyboard']}
+    # Validate our own template too; no-key mode has the same filming constraints.
+    validate(example, candidates)
+    _safe_generated(json.dumps(draft, ensure_ascii=False), ctx)
+    model_context = dict(ctx, script_candidates=candidates)
+    task = ('编排30秒拍摄脚本。结合当前活动、已批准方案的渠道方向及表达要求，从script_candidates选择镜头。'
+            '只返回duration_seconds和storyboard。恰好5镜头，hook开场、cta结尾，project/evidence/terms各一次。'
+            '每行包含candidate_id、start_second、end_second、visual、voiceover、subtitle；后三项逐字复制候选，'
+            '不得新编或改写事实、口播、字幕、画面。可选择替代候选、调整中间镜头顺序与时间。'
+            '时间从0连续到30秒，不留空、不重叠；口播每秒最多4个字/字母/数字。'
+            '只做拍摄准备，不宣称平台挂链、自动发布或营销效果。')
+    generated = _model(model_context, task, example)
+    mode, usage = 'template', dict(_ZERO_USAGE)
+    if generated is not None:
+        value, usage = generated
+        try:
+            draft['storyboard'] = validate(value, candidates)
+        except (ValueError, TypeError, KeyError):
+            raise RuntimeError(_PROVIDER_ERROR) from None
+        mode = 'ai'
+    try:
+        result = render(draft, mode)
+        _safe_generated(result['title'] + '\n' + result['body'], ctx)
+    except (ValueError, TypeError):
+        if mode == 'ai':
+            raise RuntimeError(_PROVIDER_ERROR) from None
+        raise
+    return {**result, 'checks': check_content(result['title'] + '\n' + result['body'], ctx),
             'generation_mode': mode, 'usage': usage}
 
 

@@ -41,7 +41,7 @@ Python 3.12+，纯标准库，无须模型 SDK。后端将 `services/marketing-a
 
 - copy：可编辑文案和段落。
 - poster：海报文字、详情、CTA 和版式建议；不是图片生成服务，导出由后端渲染可审查的海报文件。
-- script：30 秒镜头脚本及项目详情。
+- script：默认30秒的拍摄脚本，首个优化渠道为抖音。五个镜头分别包含画面、口播、字幕和连续时间段；实物/场景/素材清单、发布文案、话题、真实项目与入口全部进入现有 `body`。使用方式、模型编排边界及虚构示例见 [抖音拍摄脚本](DOUYIN-SCRIPTS.md)。旧 `content.duration_seconds`、字符串数组 `content.shots`、`details`、`evidence` 保留，结构化 `storyboard` 等字段仅作增量。
 
 ## 验证
 
