@@ -28,11 +28,10 @@ def speech_units(text):
 
 
 def _excerpt(text, limit):
-    """Never truncate a factual sentence or turn a qualifier into a claim."""
+    """Use only a whole short record: later sentences can qualify earlier ones."""
     text = _line(text)
-    for sentence in re.split(r'(?<=[。！？；])', text):
-        if sentence and speech_units(sentence) <= limit and not re.search(r'https?://', sentence):
-            return sentence
+    if text and speech_units(text) <= limit and not re.search(r'https?://', text):
+        return text
     return ''
 
 
@@ -91,7 +90,7 @@ def prepare(ctx):
              f'{quantity_label}：{_amount(offer.get("quantity"))}（拍摄与发布前重新核实）',
              f'地点：{location or "待补充"}', f'履约说明：{delivery or "待补充"}',
              f'{action}入口：{url or "待补充；暂勿引导交易"}']
-    ready = bool(url and offer.get('quantity', 0) > 0 and not missing)
+    ready = bool(url and (offer.get('quantity') or 0) > 0 and not missing)
     cta = (f'请先核对详情，再通过商家确认的入口{action}。' if ready
            else '信息尚未齐备，请补齐并核实后再发布。')
     warnings = ['仅交付脚本与拍摄准备；不生成视频、不自动发布、不读取渠道账号数据。',
@@ -115,7 +114,7 @@ def prepare(ctx):
     fact = next((s for item in knowledge if (s := _excerpt(item['content'], 28))), '')
     fact_speech = fact or '具体内容以商家已确认资料为准，待补充。'
     price_speech = (f'价格{_amount(offer["price"])}元，先核对履约说明。'
-                    if 'price' in offer else '价格和履约信息待补充，暂勿发布。')
+                    if offer.get('price') is not None else '价格和履约信息待补充，暂勿发布。')
     if speech_units(price_speech) > 20:
         price_speech = '价格见信息卡，请核对履约说明。'
     visuals = {
