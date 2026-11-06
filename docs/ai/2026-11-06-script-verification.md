@@ -27,7 +27,9 @@ Python 3.12.14；在仓库外独立虚拟环境安装现有 `services/api/requir
 | 虚构示例 | 两份文档由同一 `generate_asset(kind=script)` 模板实际生成，含全部正文 |
 | `git diff --check` 与本轮路径范围 | 通过；增量路径由已有 `policy_scope` 校验为成员 c 范围 |
 
-后续提交时运行仓库 save 自带的协作检查。对 main 的 preflight 与远端检查以草稿 PR 的实测记录为准；本次依赖 base 不是 main，不能把增量范围通过描述为整条依赖链的 main 检查通过。
+已通过仓库 `save` 自带的 `python -m unittest discover -s tests -v` 协作检查，功能提交为 `0a122058f83fbf39092a110659cb453793095e47`。
+
+实际运行 `python scripts/collab.py preflight` 返回退出码2及 `[SCOPE]`：它相对 `origin/main` 检查整条未合并依赖，因此列出了既有 `apps/web/`、`services/api/`、共享契约、配置及其他测试。没有修改脚本、放宽允许路径或将此结果记为通过。本轮相对固定 #16 SHA 的增量仅10个文件，全部属于成员 c 的三个允许目录；草稿 PR 以 #16 分支为 base。此增量范围检查不等于 main 预检通过，依赖链的合并与 main 检查仍需团队后续完成。
 
 ## 未验证与后续配合
 
