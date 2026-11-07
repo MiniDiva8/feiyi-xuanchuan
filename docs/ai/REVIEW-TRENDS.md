@@ -21,7 +21,7 @@
 
 改动前先用虚构的两日数据复现：新增测试5项失败、1项通过，原因是复盘忽略 `trends` 和 `channels`。改动后运行 `python -m pytest tests/ai tests/backend tests/e2e -q -o faulthandler_timeout=30 --tb=short`：**156项通过、60个子测试通过**，1项既有 Starlette/httpx 弃用提示。包含真实应用路由、不同活动/商家隔离、单日、零基数、缺失、日期异常、模拟模型保留事实、已有脚本和复盘回归。未使用真实模型、未运行本轮真实浏览器。
 
-以 PR #20 的 `f720fb210a9fa7d82cc90cd7937308b9e518718d` 为依赖，main 起点为 `2132fa30164d984e5de92c79420783ee6bd73dbd`。仅改成员 c 路径；相对 main 的预检结果在提交后记录。
+以 PR #20 的 `f720fb210a9fa7d82cc90cd7937308b9e518718d` 为依赖，main 起点为 `2132fa30164d984e5de92c79420783ee6bd73dbd`。功能提交 `2400ff99e1b5a75248506e653e13d156a9460089` 通过仓库 save 自带 unittest 检查。实际运行 `python scripts/collab.py preflight`：退出码2、`[SCOPE]`，因为相对 main 包含未合并依赖中的前端、后端及共享文件，在范围检查处停止；没有修改规则。相对 PR #20 base 的6个文件通过 c 路径检查。依赖合并后仍需重新检查 main、冲突、CI 和审批。
 
 ## 成员 c 的项目变化对照
 
