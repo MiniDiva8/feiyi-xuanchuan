@@ -77,3 +77,42 @@ def test_persisted_review_keeps_campaign_and_workspace_boundaries(tmp_path, monk
         assert next(row for row in history if row['id'] == review['id'])['content'] == review['content']
         assert any(row['statement'] == '咨询：40。' for row in second['content']['facts'])
         assert client.get(f'/api/workspaces/{other_workspace}/campaigns/{target}/reviews').status_code == 404
+
+
+def test_two_days_through_real_review_route_and_merchant_isolation(tmp_path, monkeypatch):
+    monkeypatch.setenv('MARKETING_AI_API_KEY', '')
+    from app.main import create_app
+
+    with TestClient(create_app('sqlite:///' + str(tmp_path / 'trend.db'), str(tmp_path / 'files'))) as client:
+        def post(path, payload):
+            response = client.post(path, json=payload)
+            assert response.status_code in (200, 201), response.text
+            return response.json()
+
+        user = post('/api/auth/register', {'name': '虚构用户', 'email': 'trend@example.org',
+                    'password': 'Fictional-2026-password', 'workspace_name': '虚构店铺'})
+        workspace = user['workspaces'][0]['id']
+        base = f'/api/workspaces/{workspace}'
+        def campaign(root, name):
+            return post(root + '/campaigns', {'name': name, 'objective': 'sales', 'audience': '测试',
+                        'start_date': '2026-11-01', 'end_date': '2026-11-10',
+                        'budget': 100, 'channels': ['微信'], 'notes': ''})['id']
+        cid = campaign(base, '本活动')
+        def metric(root, campaign_id, day, count, channel='微信'):
+            post(root + '/metrics', {'campaign_id': campaign_id, 'date': day, 'channel': channel,
+                 'source': '虚构台账', 'attribution': 'unknown', 'impressions': count})
+        metric(base, cid, '2026-11-01', 100)
+        metric(base, cid, '2026-11-02', 50)
+        other = campaign(base, '其他活动')
+        metric(base, other, '2026-11-02', 10000)
+        foreign = post('/api/workspaces', {'name': '另一虚构商家'})['id']
+        other_base = f'/api/workspaces/{foreign}'
+        foreign_cid = campaign(other_base, '另一商家活动')
+        metric(other_base, foreign_cid, '2026-11-02', 20000)
+        review = post(base + f'/campaigns/{cid}/reviews/generate', {})
+        lines = '\n'.join(str(x) for group in review['content'].values() for x in group)
+        assert all(x in lines for x in ('2026-11-01', '2026-11-02', '100', '50', '50%', '曝光'))
+        assert '10000' not in lines and '20000' not in lines
+        assert '补零' in lines and '累计' in lines
+        assert any('曝光' in row['action'] for row in review['content']['suggestions'])
+        assert review['generation_mode'] == 'template'
