@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from decimal import Decimal, ROUND_DOWN
 from urllib import request
 from urllib.parse import urlsplit
+from . import facts, knowledge
 
 
 _PROVIDER_ERROR = '模型生成未完成，请检查配置或稍后重试；未回退为模板结果。'
@@ -37,7 +38,7 @@ def _number(value, field='numeric value'):
     return result
 
 
-def _context(context):
+def _context(context, *, for_checks=False):
     if not isinstance(context, dict):
         raise ValueError('context must be an object')
     workspace = context.get('workspace') or {}
@@ -64,26 +65,23 @@ def _context(context):
         raise ValueError('offering does not match campaign binding')
     _number(ctx['campaign'].get('budget', 0), 'budget')
     if ctx['offering']:
-        _number(ctx['offering'].get('price', 0), 'price')
-        _number(ctx['offering'].get('quantity', 0), 'quantity')
+        for field in ('price', 'quantity'):
+            if ctx['offering'].get(field) is not None:
+                _number(ctx['offering'][field], field)
         conversion_text = _text(ctx['offering'].get('conversion_url')).strip()
         conversion = urlsplit(conversion_text)
         missing_script_url = context.get('kind') == 'script' and not conversion_text
         if not missing_script_url and (conversion.scheme not in ('http', 'https') or not conversion.netloc or conversion.username or conversion.password):
             raise ValueError('offering requires an http(s) conversion URL')
-    ctx['knowledge'] = []
-    for item in context.get('knowledge') or []:
-        if not isinstance(item, dict):
-            continue
-        if item.get('workspace_id', wid) != wid or item.get('confirmed') is not True or item.get('usage_scope') != 'marketing':
-            continue
-        ctx['knowledge'].append({k: _text(item.get(k), 4000 if k == 'content' else 1000)
-                                 for k in ('id', 'title', 'content', 'source')})
-        ctx['knowledge'][-1].update({'workspace_id': wid, 'confirmed': True, 'usage_scope': 'marketing'})
-        if len(ctx['knowledge']) >= 40:
-            break
     for key in ('kind', 'channel', 'instructions'):
-        ctx[key] = _text(context.get(key), 2000)
+        ctx[key] = str(context.get(key) or '')
+    records = knowledge.eligible(context.get('knowledge'), wid)
+    if for_checks:
+        ctx['knowledge'] = records
+    else:
+        ctx['knowledge'], ctx['knowledge_selection'] = knowledge.select(records, ctx)
+    for key in ('kind', 'channel', 'instructions'):
+        ctx[key] = _text(ctx[key], 2000)
     return ctx
 
 
@@ -100,6 +98,8 @@ def _warnings(ctx):
     if not ctx['campaign'].get('channels'):
         warnings.append('活动未指定渠道；请确认建议渠道后再发布。')
     warnings.append('草稿须由商家核实资料、履约条件和文化表述；未承诺销售或报名效果。')
+    if (ctx.get('knowledge_selection') or {}).get('omitted'):
+        warnings.append('生成资料按相关性与长度预算选择；过长记录整条省略，未截取可能丢失限定条件的片段。事实检查仍使用全部合格依据。')
     return warnings
 
 
@@ -109,8 +109,10 @@ def _offering_lines(ctx):
         return ['商品/课程信息待商家补充', '购买/报名入口待补充，暂勿发布']
     unit = '名额' if offer.get('kind') == 'course' else '库存'
     action = '报名' if offer.get('kind') == 'course' else '购买'
+    price = facts.decimal_text(offer['price']) + '元' if offer.get('price') is not None else '待补充'
+    quantity = facts.decimal_text(offer['quantity']) if offer.get('quantity') is not None else '待补充'
     return [f"{offer.get('name', '未命名项目')}｜{offer.get('description', '')}",
-            f"价格：{offer.get('price', 0):g}元；{unit}：{offer.get('quantity', 0)}（以商家实时确认为准）",
+            f"价格：{price}；{unit}：{quantity}（以商家实时确认为准）",
             f"地点：{offer.get('location') or '待确认'}；履约：{offer.get('delivery') or '待确认'}",
             f"查看详情并{action}：{offer['conversion_url']}"]
 
@@ -152,7 +154,16 @@ def _template_plan(ctx):
 
 def check_content(text: str, context: dict) -> list:
     """Return deterministic checks; this assists review, not legal certification."""
-    ctx = _context(context)
+    ctx = _context(context, for_checks=True)
+    # The existing plan-revision route passes JSON text. JSON string delimiters
+    # are serialization, not quoted/historical marketing claims.
+    if text.lstrip().startswith(('{', '[')):
+        try:
+            value = json.loads(text)
+            if isinstance(value, (dict, list)):
+                text = '\n'.join(_content_strings(value))
+        except (ValueError, TypeError):
+            pass
     checks = []
     if _GUARANTEE.search(text):
         checks.append({'level': 'error', 'message': '含绝对化排名、收益或效果保证，请改为可核实的事实表述。'})
@@ -174,6 +185,7 @@ def check_content(text: str, context: dict) -> list:
         checks.append({'level': 'warning', 'message': '尚无已确认营销资料；不得补写传承身份、历史或荣誉。'})
     if not ctx['offering']:
         checks.append({'level': 'warning', 'message': '尚未关联有效商品/课程及承接入口，发布前补齐。'})
+    checks.extend(facts.check(text, ctx))
     checks.append({'level': 'info', 'message': '自动检查不能替代商家对文化、版权、价格与履约内容的审核。'})
     return checks
 
@@ -301,8 +313,21 @@ def _rows(value, fields):
     return result
 
 
-def _safe_generated(text, ctx):
-    if any(item['level'] == 'error' for item in check_content(text, ctx)):
+def _content_strings(item):
+    if isinstance(item, str):
+        yield item
+    elif isinstance(item, dict):
+        for child in item.values():
+            yield from _content_strings(child)
+    elif isinstance(item, list):
+        for child in item:
+            yield from _content_strings(child)
+
+
+def _safe_generated(value, context):
+    # Check actual text, not JSON quotation/escaping that could hide a claim as
+    # an alleged quote. The original context retains unbudgeted vetted sources.
+    if any(item['level'] == 'error' for item in check_content('\n'.join(_content_strings(value)), context)):
         raise ValueError('unsafe generated claim')
 
 
@@ -336,7 +361,7 @@ def generate_plan(context: dict) -> dict:
         # Fixed offering facts and CTA remain visible even if model omitted them.
         if ctx['offering']:
             content['summary'] += '\n' + '\n'.join(_offering_lines(ctx))
-        _safe_generated(json.dumps(content, ensure_ascii=False), ctx)
+        _safe_generated(content, context)
         return {'content': content, 'generation_mode': 'ai', 'usage': usage}
     except (ValueError, TypeError, KeyError):
         raise RuntimeError(_PROVIDER_ERROR) from None
@@ -348,7 +373,7 @@ def generate_asset(context: dict) -> dict:
     if kind not in ('copy', 'poster', 'script'):
         raise ValueError('kind must be copy, poster or script')
     if kind == 'script':
-        return _generate_script(ctx)
+        return _generate_script(ctx, context)
     title = (ctx['offering'] or {}).get('name') or ctx['campaign'].get('name') or '活动草稿'
     details = '\n'.join(_offering_lines(ctx))
     fact_lines = '\n'.join(item['content'] for item in ctx['knowledge'][:3])
@@ -372,24 +397,25 @@ def generate_asset(context: dict) -> dict:
             content = copy.deepcopy(value['content'])
             if len(json.dumps(content, ensure_ascii=False)) > 50000:
                 raise ValueError('asset content too large')
+            _safe_generated({'title': title, 'body': body, 'content': content}, context)
             body += '\n' + details
             content['evidence'] = _evidence(ctx)
-            _safe_generated(title + '\n' + body + '\n' + json.dumps(content, ensure_ascii=False), ctx)
+            _safe_generated({'title': title, 'body': body, 'content': content}, context)
         except (ValueError, TypeError):
             raise RuntimeError(_PROVIDER_ERROR) from None
         mode = 'ai'
-    return {'title': title, 'body': body, 'content': content, 'checks': check_content(title + '\n' + body, ctx),
+    return {'title': title, 'body': body, 'content': content, 'checks': check_content(title + '\n' + body, context) + [knowledge.selection_check(ctx)],
             'generation_mode': mode, 'usage': usage}
 
 
-def _generate_script(ctx):
+def _generate_script(ctx, fact_context):
     from .shooting_script import prepare, render, validate
 
     draft, candidates = prepare(ctx)
     example = {'duration_seconds': 30, 'storyboard': draft['storyboard']}
     # Validate our own template too; no-key mode has the same filming constraints.
     validate(example, candidates)
-    _safe_generated(json.dumps(draft, ensure_ascii=False), ctx)
+    _safe_generated(draft, fact_context)
     model_context = dict(ctx, script_candidates=candidates)
     task = ('编排30秒拍摄脚本。结合当前活动、已批准方案的渠道方向及表达要求，从script_candidates选择镜头。'
             '只返回duration_seconds和storyboard。恰好5镜头，hook开场、cta结尾，project/evidence/terms各一次。'
@@ -408,12 +434,12 @@ def _generate_script(ctx):
         mode = 'ai'
     try:
         result = render(draft, mode)
-        _safe_generated(result['title'] + '\n' + result['body'], ctx)
+        _safe_generated(result['title'] + '\n' + result['body'], fact_context)
     except (ValueError, TypeError):
         if mode == 'ai':
             raise RuntimeError(_PROVIDER_ERROR) from None
         raise
-    return {**result, 'checks': check_content(result['title'] + '\n' + result['body'], ctx),
+    return {**result, 'checks': check_content(result['title'] + '\n' + result['body'], fact_context) + [knowledge.selection_check(ctx)],
             'generation_mode': mode, 'usage': usage}
 
 
@@ -541,7 +567,7 @@ def build_review(context: dict) -> dict:
         model_suggestions = _rows(value.get('suggestions'), {'action': _string, 'metric': _string})
         content['suggestions'] += [row for row in model_suggestions if row not in content['suggestions']]
         content['limitations'] = list(dict.fromkeys(limitations + _strings(value.get('limitations', []))))
-        _safe_generated(json.dumps({'hypotheses': content['hypotheses'], 'suggestions': content['suggestions']}, ensure_ascii=False), ctx)
+        _safe_generated({'hypotheses': content['hypotheses'], 'suggestions': content['suggestions']}, context)
         # Provider facts intentionally ignored; observed facts above are deterministic.
         return {'content': content, 'generation_mode': 'ai', 'usage': usage}
     except (ValueError, TypeError):
