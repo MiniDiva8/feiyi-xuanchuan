@@ -48,7 +48,11 @@
 
 实际 fetch 的 main 为 `2132fa30164d984e5de92c79420783ee6bd73dbd`。PR #18 仍开放且未合并，最新依赖为 `551619a38f70e70864323ad121a359b4ae05dc68`（包含 #12/#14/#16）。按 `start --member c --issue 19 --slug factual-copy-selection --native --native-issue-verified` 从 main 建本人分支，再仅在本人新分支 fast-forward 到该依赖。草稿 PR base 为 `codex/zhupaifan/issue-17-douyin-shooting-script`，不改动或推送依赖分支。本次 head SHA 记录在 PR 描述，避免在提交自身中伪造自引用 SHA。
 
-本次相对实际 base 的增量仅位于 `services/marketing-ai/`、`docs/ai/`、`tests/ai/`。按仓库 `save` 提交并执行检查；main 预检在提交后实际运行并记录，不修改脚本或 CI 绕过依赖范围限制。
+本次相对实际 base 的完整增量为9个文件，仅位于 `services/marketing-ai/`、`docs/ai/`、`tests/ai/`，由现有 `Project.guard_files` 核对通过。功能提交 `0ee621c5e595d51b24ca61892c792dceeaf1d61f` 已通过 `save` 内置的 `python -m unittest discover -s tests -v`；`git diff <实际base>...HEAD --check` 通过。
+
+2026-11-07 恢复环境后，确认本人分支、干净工作树和同一功能提交，重新核查 PR #18 仍为上述未合并 head。实际执行 `python scripts/collab.py preflight`：**退出码2，`[SCOPE]`，未通过**。它 fetch 最新 main 后，相对 main 看到依赖链内的 `apps/web/`、`services/api/`、共享契约/配置等范围外文件，因此在范围检查处停止，未完成其后续合并检查。本次没有改动这些文件，没有修改脚本、任务基准或 CI 绕过规则。
+
+草稿 PR 按用户授权以 PR #18 分支为 base，只包含上述9个 c 模块文件。现有 Actions 仅匹配 main，不能把没有运行的远端 CI 宣称通过；依赖合并或 PR base 调整后须重新核验 main 范围、CI、冲突与审批。当前通过的本地回归不等于可合并。
 
 **a/b 当前无需改动即可使用。** 现有素材页面读取 `body`、`checks`，生成及人工修订已调用此模块，审核/导出已阻止错误检查。a 若未来区分「待核验」和「通过」，应避免把没有 error 呈现为事实已认证；b 若未来需要生成失败时展示逐项问题，可讨论现有通用提供方错误的安全诊断接口，本次不修改共享结构。若未来支持多个绑定项目/多规格/条件价格，b 需提供按项目和适用条件区分的真实结构化依据，a 需提供选择与审核交互，AI 不能靠猜测补出这些信息。
 
