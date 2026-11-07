@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from decimal import Decimal, ROUND_DOWN
 from urllib import request
 from urllib.parse import urlsplit
-from . import facts, knowledge
+from . import facts, knowledge, review_trends
 
 
 _PROVIDER_ERROR = '模型生成未完成，请检查配置或稍后重试；未回退为模板结果。'
@@ -550,6 +550,12 @@ def build_review(context: dict) -> dict:
     derived, data_limitations, suggestions = _review_guidance(ctx, exact, labels)
     facts += derived
     limitations += data_limitations
+    trend_facts, trend_actions, trend_limits, channel_facts = review_trends.analyze(analytics)
+    # Put comparisons immediately after the record count so they are visible
+    # before the longer list of totals in the existing review page.
+    facts[1:1] = trend_facts
+    suggestions = trend_actions + suggestions
+    limitations += trend_limits
     content = {'facts': facts,
                'hypotheses': [{'statement': '受众与报名/购买入口的匹配可能影响咨询与转化，当前数据尚不能验证。',
                                'validation': '下一轮仅调整一个变量，记录同渠道、同区间曝光、咨询和成交/报名。'}],
@@ -558,7 +564,9 @@ def build_review(context: dict) -> dict:
                'limitations': limitations}
     # Only numeric vetted stats are shared; analytics free text/foreign channels are not sent.
     ctx['analytics'] = {'stats': values, 'records': records}
-    generated = _model(ctx, '保留事实，为复盘提出假设和调整建议', content)
+    # Channel names are merchant free text; keep them in local output only.
+    model_example = dict(content, facts=[item for item in facts if item not in channel_facts])
+    generated = _model(ctx, '保留事实，为复盘提出假设和调整建议', model_example)
     if generated is None:
         return {'content': content, 'generation_mode': 'template', 'usage': dict(_ZERO_USAGE)}
     value, usage = generated
