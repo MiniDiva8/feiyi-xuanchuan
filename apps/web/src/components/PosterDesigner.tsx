@@ -108,6 +108,35 @@ function Editor({ asset, close }: { asset: Asset; close: () => void }) {
               文案排版，不会生成或改变商品外观。保存后创建新的待审核版本，原审核不会沿用。
             </Notice>
             <fieldset disabled={Boolean(busy)} className="poster-editor-fields">
+              <div
+                className="poster-template-choices"
+                role="group"
+                aria-label="选择海报版式"
+              >
+                {[
+                  { value: "heritage", label: "雅绿", detail: "非遗工坊" },
+                  { value: "warm", label: "暖陶", detail: "手作体验" },
+                  { value: "minimal", label: "留白", detail: "产品展示" },
+                ].map((choice) => (
+                  <button
+                    type="button"
+                    className="poster-template-choice"
+                    key={choice.value}
+                    aria-pressed={template === choice.value}
+                    aria-label={"选择" + choice.label + "模板"}
+                    onClick={() => {
+                      setTemplate(choice.value);
+                      invalidate();
+                    }}
+                  >
+                    <span
+                      className={"template-mini template-" + choice.value}
+                      aria-hidden="true"
+                    />
+                    <strong>{choice.label}</strong> · {choice.detail}
+                  </button>
+                ))}
+              </div>
               <label className="field">
                 <span>海报模板</span>
                 <select

@@ -1,0 +1,287 @@
+/* Content workspace: complete authoritative text, adjacent version checks and actions. */
+.content-studio-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 18px 0;
+  padding: 14px 18px;
+  border: 1px solid var(--border, #e6e7ec);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--ink, #24262b);
+  font-size: 14px;
+}
+.content-studio-context > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+.content-studio-context > div > span:first-child,
+.content-studio-context p {
+  color: var(--muted, #737681);
+}
+.content-studio-context p {
+  margin: 0;
+  line-height: 1.7;
+}
+.asset-grid.content-review-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.content-review-card .asset-header {
+  padding: 18px 22px;
+  align-items: flex-start;
+}
+.content-review-card .asset-header strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.content-review-card .asset-header small {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted, #737681);
+}
+.content-review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  min-width: 0;
+}
+.content-review-main {
+  min-width: 0;
+  padding: 28px;
+  background: #fafafd;
+}
+.content-review-sidebar {
+  min-width: 0;
+  border-left: 1px solid var(--border, #e6e7ec);
+  background: var(--surface, #fff);
+}
+.content-review-version {
+  display: grid;
+  gap: 5px;
+  padding: 20px 20px 16px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.content-review-version > span {
+  color: var(--muted, #737681);
+  font-size: 13px;
+}
+.content-review-sidebar .asset-checks {
+  padding: 0 20px 20px;
+  gap: 16px;
+  align-items: stretch;
+}
+.content-review-sidebar .asset-actions {
+  padding: 18px 20px;
+  gap: 8px;
+}
+.content-review-sidebar .asset-actions .button {
+  min-height: 38px;
+  font-size: 13px;
+}
+.content-review-sidebar .asset-actions > .button:first-child {
+  flex-basis: 100%;
+}
+.content-review-sidebar .export-buttons {
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 10px;
+}
+.content-review-sidebar .export-buttons .text-button {
+  margin: 4px 0 0;
+  font-size: 13px;
+  min-height: 32px;
+}
+.content-preview {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border, #e6e7ec);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+}
+.content-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border, #e6e7ec);
+  font-size: 14px;
+}
+.content-preview-heading > span {
+  color: var(--muted, #737681);
+  font-size: 12px;
+}
+.content-preview-body {
+  padding: 24px 0 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 2;
+  color: var(--ink, #24262b);
+  tab-size: 4;
+}
+.content-preview-script .content-preview-body {
+  line-height: 2.1;
+}
+.content-preview-empty,
+.content-preview-note {
+  color: var(--muted, #737681);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.content-preview-note {
+  border-top: 1px solid var(--border, #e6e7ec);
+  padding-top: 16px;
+  margin: 20px 0 0;
+}
+.content-checks {
+  width: 100%;
+  min-width: 0;
+}
+.content-checks > h3 {
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+.content-checks > p {
+  font-size: 13px;
+  color: var(--muted, #737681);
+  line-height: 1.8;
+}
+.content-check-group {
+  padding: 12px;
+  margin-top: 10px;
+  border: 1px solid var(--border, #e6e7ec);
+  border-radius: 6px;
+  background: #f8f8fb;
+}
+.content-check-group .content-check-label {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.content-check-label > span {
+  color: var(--muted, #737681);
+  font-size: 12px;
+}
+.content-check-group ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+.content-check-group li {
+  font-size: 13px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.content-check-group li + li {
+  margin-top: 8px;
+}
+.content-check-error {
+  background: #fff5f4;
+  border-color: #efcbc6;
+}
+.content-check-error .content-check-label > strong {
+  color: #a63830;
+}
+.content-check-warning {
+  background: #fffaf0;
+  border-color: #eee0be;
+}
+.content-check-warning .content-check-label > strong {
+  color: #8a601f;
+}
+.content-evidence {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.content-evidence > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.content-evidence dt {
+  color: var(--muted, #737681);
+  overflow-wrap: anywhere;
+}
+.content-evidence dd {
+  margin: 0;
+  color: var(--ink, #24262b);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.content-review-summary > div {
+  min-width: 0;
+}
+.content-review-summary article > strong {
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.content-review-summary article {
+  padding: 18px;
+  background: #fafafd;
+  border: 1px solid var(--border, #e6e7ec);
+  border-radius: 8px;
+  margin-top: 12px;
+}
+@media (max-width: 1100px) {
+  .content-review-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .content-review-sidebar {
+    border-left: 0;
+    border-top: 1px solid var(--border, #e6e7ec);
+  }
+  .content-review-sidebar .asset-actions > .button:first-child {
+    flex-basis: auto;
+  }
+  .content-review-sidebar .asset-checks {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .content-studio-context {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 560px) {
+  .content-review-card .asset-header {
+    padding: 16px;
+    gap: 10px;
+  }
+  .content-review-card .asset-header .resource-icon {
+    display: none;
+  }
+  .content-review-main {
+    padding: 14px;
+  }
+  .content-preview {
+    padding: 18px;
+  }
+  .content-preview-body {
+    font-size: 14px;
+  }
+  .content-review-sidebar .asset-checks,
+  .content-review-sidebar .asset-actions {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .content-review-summary article {
+    padding: 14px;
+  }
+  .content-studio-context {
+    padding: 14px;
+    font-size: 13px;
+  }
+}

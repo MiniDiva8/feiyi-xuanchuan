@@ -180,53 +180,58 @@ export default function ChannelsPage() {
                       最近作品发布：
                       {account.latest.latest_post_date || "未提供"}
                     </p>
-                    <div className="table-wrap">
-                      <table>
-                        <caption>历史快照 · 数值为累计值，不相加</caption>
-                        <thead>
-                          <tr>
-                            <th>日期</th>
-                            <th>粉丝</th>
-                            <th>播放/阅读</th>
-                            <th>点赞</th>
-                            <th>评论</th>
-                            <th>分享</th>
-                            <th>作品</th>
-                            <th>来源</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[...account.snapshots].reverse().map((s) => (
-                            <tr key={s.id}>
-                              <td>{s.date}</td>
-                              <td>
-                                {s.followers == null
-                                  ? "未提供"
-                                  : num(s.followers)}
-                              </td>
-                              <td>
-                                {s.views == null ? "未提供" : num(s.views)}
-                              </td>
-                              <td>
-                                {s.likes == null ? "未提供" : num(s.likes)}
-                              </td>
-                              <td>
-                                {s.comments == null
-                                  ? "未提供"
-                                  : num(s.comments)}
-                              </td>
-                              <td>
-                                {s.shares == null ? "未提供" : num(s.shares)}
-                              </td>
-                              <td>
-                                {s.posts == null ? "未提供" : num(s.posts)}
-                              </td>
-                              <td>{s.source}</td>
+                    <details className="channel-history">
+                      <summary>
+                        查看历史快照（{account.snapshots.length} 条）
+                      </summary>
+                      <div className="table-wrap">
+                        <table>
+                          <caption>历史快照 · 数值为累计值，不相加</caption>
+                          <thead>
+                            <tr>
+                              <th>日期</th>
+                              <th>粉丝</th>
+                              <th>播放/阅读</th>
+                              <th>点赞</th>
+                              <th>评论</th>
+                              <th>分享</th>
+                              <th>作品</th>
+                              <th>来源</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {[...account.snapshots].reverse().map((s) => (
+                              <tr key={s.id}>
+                                <td>{s.date}</td>
+                                <td>
+                                  {s.followers == null
+                                    ? "未提供"
+                                    : num(s.followers)}
+                                </td>
+                                <td>
+                                  {s.views == null ? "未提供" : num(s.views)}
+                                </td>
+                                <td>
+                                  {s.likes == null ? "未提供" : num(s.likes)}
+                                </td>
+                                <td>
+                                  {s.comments == null
+                                    ? "未提供"
+                                    : num(s.comments)}
+                                </td>
+                                <td>
+                                  {s.shares == null ? "未提供" : num(s.shares)}
+                                </td>
+                                <td>
+                                  {s.posts == null ? "未提供" : num(s.posts)}
+                                </td>
+                                <td>{s.source}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
                   </>
                 ) : (
                   <p>

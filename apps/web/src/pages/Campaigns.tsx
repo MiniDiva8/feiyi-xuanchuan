@@ -15,11 +15,14 @@ import {
   Image,
   Clapperboard,
   ExternalLink,
-  ChevronRight,
   BookOpen,
 } from "lucide-react";
 import { useApp } from "../context";
 import PosterDesigner from "../components/PosterDesigner";
+import ContentPreview, {
+  ContentChecks,
+  ContentEvidence,
+} from "../components/ContentPreview";
 import { useResource } from "../hooks";
 import { post, patch, download, downloadPosterPng } from "../api";
 import type { Campaign, Offering, Plan, Asset, Review, Audit } from "../types";
@@ -340,45 +343,40 @@ export function StudioPage({ id }: { id: string }) {
         </span>
         <span>{c.channels.join(" / ")}</span>
       </div>
-      <div className="workflow-track">
-        <div className="done">
-          <span>01</span>活动简报
-          <Check size={13} />
+      <div className="content-studio-context" aria-label="活动版本上下文">
+        <div>
+          <span>最新策划</span>
+          <strong>
+            {plans.loading
+              ? "读取中…"
+              : plans.error
+                ? "读取失败"
+                : latest
+                  ? `V${latest.version}`
+                  : "尚未生成"}
+          </strong>
+          {latest && <Status value={latest.status} />}
         </div>
-        <ChevronRight size={15} />
-        <div className={plans.data?.length ? "done" : "current"}>
-          <span>02</span>策划与确认
-        </div>
-        <ChevronRight size={15} />
-        <div
-          className={assets.data?.length ? "done" : approved ? "current" : ""}
-        >
-          <span>03</span>素材与审核
-        </div>
-        <ChevronRight size={15} />
-        <button onClick={() => go("publications")}>
-          <span>04</span>发布登记
-        </button>
-        <ChevronRight size={15} />
-        <button onClick={() => go("analytics")}>
-          <span>05</span>数据复盘
-        </button>
+        <p>策划确认后生成素材；编辑后保存新版本，再审核导出。</p>
       </div>
       <div className="tabs">
         <button
           className={tab === "plan" ? "active" : ""}
+          aria-pressed={tab === "plan"}
           onClick={() => setTab("plan")}
         >
           活动策划<span>{plans.data?.length || 0}</span>
         </button>
         <button
           className={tab === "assets" ? "active" : ""}
+          aria-pressed={tab === "assets"}
           onClick={() => setTab("assets")}
         >
           传播素材<span>{assets.data?.length || 0}</span>
         </button>
         <button
           className={tab === "review" ? "active" : ""}
+          aria-pressed={tab === "review"}
           onClick={() => setTab("review")}
         >
           复盘与下一轮
@@ -614,7 +612,7 @@ export function StudioPage({ id }: { id: string }) {
               />
             </Panel>
           ) : (
-            <div className="asset-grid">
+            <div className="asset-grid content-review-list">
               {[...(assets.data || [])]
                 .sort((a, b) => b.version - a.version)
                 .map((a) => {
@@ -628,7 +626,10 @@ export function StudioPage({ id }: { id: string }) {
                     a.plan_id === latest?.id &&
                     approved;
                   return (
-                    <Panel key={a.id} className="asset-card">
+                    <Panel
+                      key={a.id}
+                      className="asset-card content-review-card"
+                    >
                       <header className="asset-header">
                         <span className="resource-icon">
                           {a.kind === "poster" ? (
@@ -655,120 +656,97 @@ export function StudioPage({ id }: { id: string }) {
                         </div>
                         <Status value={a.status} />
                       </header>
-                      <div
-                        className={
-                          "asset-body " +
-                          (a.kind === "poster" ? "poster-body" : "")
-                        }
-                      >
-                        {a.kind === "poster" && (
-                          <div className="poster-stamp">匠心有声</div>
-                        )}
-                        <p>{a.body}</p>
-                      </div>
-                      <div className="asset-checks">
-                        {a.status === "rejected" && (
-                          <Notice tone="error">
-                            审核退回：
-                            {String(
-                              rejectionReason(a.id) ||
-                                (audit.loading
-                                  ? "正在读取审核意见…"
-                                  : audit.error
-                                    ? "审核意见读取失败，请稍后重试或查看操作审计"
-                                    : "未记录具体原因，请查看操作审计"),
+                      <div className="content-review-layout">
+                        <div className="content-review-main">
+                          <ContentPreview body={a.body} kind={a.kind} />
+                        </div>
+                        <aside
+                          className="content-review-sidebar"
+                          aria-label={`素材 V${a.version} 核对与审核`}
+                        >
+                          <div className="content-review-version">
+                            <strong>素材 V{a.version}</strong>
+                            <span>
+                              {a.plan_id === latest?.id
+                                ? "关联最新策划"
+                                : "关联历史策划"}
+                            </span>
+                          </div>
+                          <div className="asset-checks">
+                            {a.status === "rejected" && (
+                              <Notice tone="error">
+                                审核退回：
+                                {String(
+                                  rejectionReason(a.id) ||
+                                    (audit.loading
+                                      ? "正在读取审核意见…"
+                                      : audit.error
+                                        ? "审核意见读取失败，请稍后重试或查看操作审计"
+                                        : "未记录具体原因，请查看操作审计"),
+                                )}
+                              </Notice>
                             )}
-                          </Notice>
-                        )}
-                        <Mode value={a.generation_mode} />
-                        {a.checks?.map((check, i) => (
-                          <small
-                            key={i}
-                            className={
-                              check.level === "error" ? "error-text" : ""
-                            }
-                          >
-                            {check.message}
-                          </small>
-                        ))}
-                      </div>
-                      <footer className="asset-actions">
-                        {a.kind === "poster" && <PosterDesigner asset={a} />}
-                        <Button
-                          variant="secondary small"
-                          onClick={() => {
-                            setSelectedAsset(a);
-                            setModal("asset-revise");
-                          }}
-                        >
-                          编辑新版本
-                        </Button>
-                        <Button
-                          variant="secondary small"
-                          disabled={
-                            a.status !== "draft" ||
-                            a.plan_id !== latest?.id ||
-                            !canExport(
-                              { ...a, status: "approved" },
-                              (assets.data || [])
-                                .filter(
-                                  (s) =>
-                                    s.channel === a.channel &&
-                                    s.kind === a.kind,
-                                )
-                                .map((s) =>
-                                  s.id === a.id
-                                    ? { ...s, status: "approved" }
-                                    : s,
-                                ),
-                            )
-                          }
-                          busy={busy === a.id}
-                          onClick={() =>
-                            action(
-                              a.id,
-                              () => post(path("/assets/" + a.id + "/approve")),
-                              "素材版本已批准",
-                            )
-                          }
-                        >
-                          批准
-                        </Button>
-                        <Button
-                          variant="ghost small"
-                          disabled={a.status !== "draft"}
-                          onClick={() => {
-                            setSelectedAsset(a);
-                            setModal("asset-reject");
-                          }}
-                        >
-                          退回
-                        </Button>
-                        <div className="export-buttons">
-                          <Button
-                            variant="small"
-                            disabled={!exportable}
-                            onClick={() =>
-                              action(
-                                "export",
-                                () =>
-                                  download(
-                                    path(
-                                      "/assets/" + a.id + "/export?format=txt",
+                            <Mode value={a.generation_mode} />
+                            <ContentChecks checks={a.checks || []} />
+                          </div>
+                          <footer className="asset-actions">
+                            {a.kind === "poster" && (
+                              <PosterDesigner asset={a} />
+                            )}
+                            <Button
+                              variant="secondary small"
+                              onClick={() => {
+                                setSelectedAsset(a);
+                                setModal("asset-revise");
+                              }}
+                            >
+                              编辑新版本
+                            </Button>
+                            <Button
+                              variant="secondary small"
+                              disabled={
+                                a.status !== "draft" ||
+                                a.plan_id !== latest?.id ||
+                                !canExport(
+                                  { ...a, status: "approved" },
+                                  (assets.data || [])
+                                    .filter(
+                                      (s) =>
+                                        s.channel === a.channel &&
+                                        s.kind === a.kind,
+                                    )
+                                    .map((s) =>
+                                      s.id === a.id
+                                        ? { ...s, status: "approved" }
+                                        : s,
                                     ),
-                                    a.title + ".txt",
-                                  ),
-                                "已导出文案",
-                              )
-                            }
-                          >
-                            <Download size={14} />
-                            TXT
-                          </Button>
-                          {a.kind === "poster" ? (
-                            <>
+                                )
+                              }
+                              busy={busy === a.id}
+                              onClick={() =>
+                                action(
+                                  a.id,
+                                  () =>
+                                    post(path("/assets/" + a.id + "/approve")),
+                                  "素材版本已批准",
+                                )
+                              }
+                            >
+                              批准
+                            </Button>
+                            <Button
+                              variant="ghost small"
+                              disabled={a.status !== "draft"}
+                              onClick={() => {
+                                setSelectedAsset(a);
+                                setModal("asset-reject");
+                              }}
+                            >
+                              退回
+                            </Button>
+                            <div className="export-buttons">
                               <Button
-                                variant="secondary small"
+                                variant="small"
                                 disabled={!exportable}
                                 onClick={() =>
                                   action(
@@ -778,70 +756,96 @@ export function StudioPage({ id }: { id: string }) {
                                         path(
                                           "/assets/" +
                                             a.id +
-                                            "/export?format=svg",
+                                            "/export?format=txt",
                                         ),
-                                        a.title + ".svg",
+                                        a.title + ".txt",
                                       ),
-                                    "已导出 SVG",
+                                    "已导出文案",
                                   )
                                 }
                               >
-                                SVG
+                                <Download size={14} />
+                                TXT
                               </Button>
-                              <Button
-                                variant="secondary small"
+                              {a.kind === "poster" ? (
+                                <>
+                                  <Button
+                                    variant="secondary small"
+                                    disabled={!exportable}
+                                    onClick={() =>
+                                      action(
+                                        "export",
+                                        () =>
+                                          download(
+                                            path(
+                                              "/assets/" +
+                                                a.id +
+                                                "/export?format=svg",
+                                            ),
+                                            a.title + ".svg",
+                                          ),
+                                        "已导出 SVG",
+                                      )
+                                    }
+                                  >
+                                    SVG
+                                  </Button>
+                                  <Button
+                                    variant="secondary small"
+                                    disabled={!exportable}
+                                    onClick={() =>
+                                      action(
+                                        "export",
+                                        () =>
+                                          downloadPosterPng(
+                                            path(
+                                              "/assets/" +
+                                                a.id +
+                                                "/export?format=svg",
+                                            ),
+                                            a.title + ".png",
+                                          ),
+                                        "已导出 PNG",
+                                      )
+                                    }
+                                  >
+                                    PNG
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="secondary small"
+                                  disabled={!exportable}
+                                  onClick={() =>
+                                    action(
+                                      "export",
+                                      () =>
+                                        download(
+                                          path(
+                                            "/assets/" +
+                                              a.id +
+                                              "/export?format=html",
+                                          ),
+                                          a.title + ".html",
+                                        ),
+                                      "已导出 HTML",
+                                    )
+                                  }
+                                >
+                                  HTML
+                                </Button>
+                              )}
+                              <button
+                                className="text-button"
                                 disabled={!exportable}
-                                onClick={() =>
-                                  action(
-                                    "export",
-                                    () =>
-                                      downloadPosterPng(
-                                        path(
-                                          "/assets/" +
-                                            a.id +
-                                            "/export?format=svg",
-                                        ),
-                                        a.title + ".png",
-                                      ),
-                                    "已导出 PNG",
-                                  )
-                                }
+                                onClick={() => go("publications")}
                               >
-                                PNG
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              variant="secondary small"
-                              disabled={!exportable}
-                              onClick={() =>
-                                action(
-                                  "export",
-                                  () =>
-                                    download(
-                                      path(
-                                        "/assets/" +
-                                          a.id +
-                                          "/export?format=html",
-                                      ),
-                                      a.title + ".html",
-                                    ),
-                                  "已导出 HTML",
-                                )
-                              }
-                            >
-                              HTML
-                            </Button>
-                          )}
-                          <button
-                            className="text-button"
-                            disabled={!exportable}
-                            onClick={() => go("publications")}
-                          >
-                            登记发布 <ExternalLink size={13} />
-                          </button>
-                        </div>
-                      </footer>
+                                登记发布 <ExternalLink size={13} />
+                              </button>
+                            </div>
+                          </footer>
+                        </aside>
+                      </div>
                     </Panel>
                   );
                 })}
@@ -1133,7 +1137,7 @@ export function StudioPage({ id }: { id: string }) {
 }
 export function ReviewContent({ review: r }: { review: Review }) {
   return (
-    <div className="review-content">
+    <div className="review-content content-review-summary">
       <div>
         <h3>
           <Badge tone="green">观察事实</Badge>有记录的数据
@@ -1141,12 +1145,7 @@ export function ReviewContent({ review: r }: { review: Review }) {
         {r.content.facts?.map((f, i) => (
           <article key={i}>
             <strong>{f.statement}</strong>
-            <p>
-              依据：
-              {typeof f.evidence === "string"
-                ? f.evidence
-                : JSON.stringify(f.evidence)}
-            </p>
+            <ContentEvidence value={f.evidence} />
           </article>
         ))}
       </div>

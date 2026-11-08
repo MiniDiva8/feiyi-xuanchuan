@@ -37,6 +37,10 @@ def run():
             dialog.locator('[name=views]').fill('2500')
             dialog.get_by_role('button', name='保存数据快照', exact=True).click()
             expect(page.get_by_role('dialog')).to_have_count(0)
+            history = page.locator('details.channel-history')
+            expect(history.locator('summary')).to_be_visible()
+            if not history.evaluate('(element) => element.open'):
+                history.locator('summary').click()
             expect(page.get_by_role('cell', name=day, exact=True)).to_be_visible()
         expect(page.get_by_text('粉丝变化：+10', exact=False)).to_be_visible()
         expect(page.get_by_text('手动记录 · 未自动同步', exact=True)).to_be_visible()

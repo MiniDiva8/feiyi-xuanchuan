@@ -258,7 +258,15 @@ export default function App() {
             </label>
             <ChevronDown size={14} />
           </div>
-          <nav>
+          <Button
+            className="button sidebar-create"
+            disabled={!["owner", "editor"].includes(workspace.role)}
+            onClick={() => go("campaign-new")}
+          >
+            <Plus size={16} />
+            新建营销活动
+          </Button>
+          <nav aria-label="主要功能">
             {sections.map((section) => (
               <div className="nav-group" key={section.label}>
                 <span className="nav-caption">{section.label}</span>
