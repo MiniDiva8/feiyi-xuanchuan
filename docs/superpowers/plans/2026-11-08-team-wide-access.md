@@ -19,4 +19,4 @@ Add validated scope_mode/visibility; update CLI/admin/readiness entry points; pr
 ## Task 3: Make instructions consistent and deliver
 Update root/own-module instructions, prompts, README, workflow docs, CODEOWNERS and task template to explain equal code access. Run suite and local three-clone simulation, live read-only board, independent whole-branch review and one targeted fix pass. Push own branch and draft PR to main; verify actual CI and share pending human-merge boundary.
 
-Progress: Task1 complete (45 baseline + RED scope/visibility regressions); Task2 complete (10 new regressions GREEN); Task3 full-suite/simulation/review/publication in progress.
+Progress: Task1 complete (45 baseline + RED scope/visibility regressions); Task2 complete (10 new regressions GREEN); Task3 source/docs/review fixes delivered through PR24; local56tests andsimulation green. Current remoteCI/peer-review state is checked on PR24 before final handoff.

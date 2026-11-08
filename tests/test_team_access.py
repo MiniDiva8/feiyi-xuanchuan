@@ -118,5 +118,39 @@ class TeamWideGitLifecycleTests(unittest.TestCase):
             collab.start(project, args)
         self.assertEqual(project.branch(), "codex/MiniDiva8/issue-501-public-start")
 
+class TrustedReviewPolicyTests(unittest.TestCase):
+    def test_migration_cannot_reduce_base_two_peer_requirement_to_one(self):
+        import base64
+        from check_pr import live_check
+        head, main = "a" * 40, "b" * 40
+        base_policy = copy.deepcopy(TEAM)
+        local_policy = dict(base_policy, scope_mode="team-wide", visibility="public")
+        pr = {"number": 24, "changed_files": 1, "state": "open", "draft": False, "mergeable": True,
+              "head": {"sha": head, "ref": "codex/MiniDiva8/issue-23-team-wide-access"},
+              "base": {"sha": main, "ref": "main"}, "html_url": "https://github.com/example/pull/24"}
+        checks = [{"name": "collab-quality", "bucket": "pass", "event": "pull_request", "workflow": "collaboration"}]
+        reviews = [{"id": 1, "user": {"login": "donghaochen45-pixel"}, "state": "APPROVED", "commit_id": head}]
+        def api(endpoint):
+            if "/contents/collab/team.json?ref=" in endpoint:
+                self.assertTrue(endpoint.endswith(main))
+                return {"encoding": "base64", "content": base64.b64encode(json.dumps(base_policy).encode()).decode()}
+            if endpoint.endswith("/files"): return [{"filename": "docs/shared.md"}]
+            if "/reviews?" in endpoint: return reviews
+            if "/files?" in endpoint: return [{"filename": "docs/shared.md"}]
+            if endpoint.endswith("/branches/main"): return {"commit": {"sha": main}}
+            if "/compare/" in endpoint: return {"status": "ahead"}
+            if endpoint.endswith("/pulls/24"): return copy.deepcopy(pr)
+            raise AssertionError("Unexpected API endpoint " + endpoint)
+        gh = SimpleNamespace(api=api, require_repository=Mock(), require_issue=Mock(return_value={"html_url": "issue23"}),
+                             invoke=Mock(return_value=SimpleNamespace(returncode=0, stdout=json.dumps(checks))))
+        project = SimpleNamespace(policy=local_policy, base="main", check_remote=Mock(), gh=gh)
+        result = live_check(project, 24)
+        self.assertFalse(result["ready"])
+        self.assertIn("need 2 current-head peer approval(s)", result["reasons"])
+        gh.require_repository.assert_called_once_with("public")
+        self.assertEqual(project.policy, local_policy, "Authority checks must not rewrite local configuration")
+        reviews.append({"id": 2, "user": {"login": "zhupaifan"}, "state": "APPROVED", "commit_id": head})
+        self.assertTrue(live_check(project, 24)["ready"])
+
 if __name__ == "__main__":
     unittest.main()
