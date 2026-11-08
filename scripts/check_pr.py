@@ -7,7 +7,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from collab_lib import CollabError, Project, emit, policy_scope
+from collab_lib import CollabError, Project, emit, policy_scope, repository_visibility, scope_mode
 
 def branch_task(branch, policy):
     match = re.fullmatch(r"codex/([A-Za-z0-9-]+)/issue-([1-9][0-9]*)-([a-z0-9][a-z0-9-]{0,63})", branch)
@@ -102,6 +102,8 @@ def scope_check(project, pr):
     try:
         policy_scope(project.policy, member, paths, False)
     except CollabError:
+        if scope_mode(project.policy) == "team-wide":
+            raise
         project.gh.require_issue(issue_number, login, True)
         policy_scope(project.policy, member, paths, True)
         shared = True
@@ -112,7 +114,7 @@ def live_check(project, number):
     if number < 1:
         raise CollabError("INPUT", "PR number must be positive.")
     project.check_remote()
-    project.gh.private_repository()
+    project.gh.require_repository(repository_visibility(project.policy))
     prefix = f"repos/{project.policy['repository']}"
     pr = project.gh.api(f"{prefix}/pulls/{number}")
     scope = scope_check(project, pr)

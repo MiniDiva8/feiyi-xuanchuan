@@ -7,8 +7,8 @@ Cloud 环境和本地 clone 是各自的执行空间。不要用聊天口头声�
 ## 认领与并行
 一个 Issue 只有一个 Assignee。开始前查看是否已有活跃 PR/分支；同一 Issue 不重复开多个实现任务。
 默认分支：codex/<GitHub登录名>/issue-<编号>-<英文短名>。
-建议分工为 a 前端、b 后端、c AI；可由团队通过共享配置 PR 调整。CODEOWNERS 的备份评审者不是额外模块作者。
-大型功能拆成三条关联 Issue，先确定 packages/contracts/ 的契约，再分别实现。接口暂未确定的地方记录假设，不能擅自改别人的代码。
+三人均可修改所有代码；a前端、b后端、c AI仅作主责参考。CODEOWNERS不限制作者目录。
+大型功能可按需要拆分关联Issue，也可由一名负责人跨模块实现。先明确契约、假设和影响，核对涉及模块的测试。
 状态标签：status:ready、status:in-progress、status:blocked。状态更新在 GitHub 完成；脚本 board 读取 GitHub，不创建本地“全队状态数据库”。
 Issue/标签不提供原子分布式锁。三人应避免同时对同一 Issue 开多个任务；普通 push 的并发拒绝不能被 force push 绕过。
 
@@ -18,7 +18,7 @@ Issue/标签不提供原子分布式锁。三人应避免同时对同一 Issue �
 3. preflight 检查范围和 main 冲突；needs_sync 为 true 时 sync。
 4. publish 普通 push，创建草稿 PR，请同伴审查。
 5. 准备完毕后由作者在 GitHub 点击 Ready for review。新提交继续 publish 复用原 PR。
-6. 至少一位同伴对当前 head 审批；共享改动要求另外两位。
+6. team-wide下至少一位同伴对当前head审批；旧partitioned模式的共享修改仍要求另外两位。
 7. check-pr 只读复核 Issue、路径、CI、最新 main、当前提交审批和 mergeability。
 8. 合并人再次看 GitHub 当前检查，明确点击 Squash and merge；删除合并后的功能分支。
 9. 新任务重新 fetch main，从新基线创建新分支。已有任务不会因别人合并而自动获得最新工作文件。
@@ -26,13 +26,13 @@ Issue/标签不提供原子分布式锁。三人应避免同时对同一 Issue �
 ## 同步与冲突
 sync 在当前人的任务分支上同步 main，保留已推送历史，不自动 rebase/强推。
 冲突先由 merge-tree 发现，工作树不进入冲突状态。向相关负责人核对意图后再人工解决。
-如果另一个人已修改共享契约，先同步和更新测试，再更新 PR。内容改动后的旧审批不覆盖新 head。脚本分别检查索引与工作树；有部分暂存时保留原状等待显式处理。start/sync 发现忽略文件碰撞会在切换/合并前停止。所有有效 pushurl 也必须是目标私有仓库。
+如果另一个人已修改共享契约，先同步和更新测试，再更新 PR。内容改动后的旧审批不覆盖新 head。脚本分别检查索引与工作树；有部分暂存时保留原状等待显式处理。start/sync 发现忽略文件碰撞会在切换/合并前停止。所有有效 pushurl 也必须是配置的目标仓库。
 在 CI/PR 检查仍 pending、未知或失败时不合并；检查缺失也不是通过。
 
 ## 审查责任
-默认前端由 zhupaifan 备份审查；后端由 MiniDiva8；AI 由 donghaochen45-pixel。
+三人均可评审全部代码；默认备份评审安排可以继续使用，不限制谁能提交代码。
 作者不能审批自己。CODEOWNERS 每个模块列出主负责人和备份评审者，避免只有作者本人有 Code Owner 身份造成无法审批。
-共享改动由另外两位评审，先核对接口兼容、商家隔离与调用方影响，再看代码。
+跨模块改动仍要核对接口兼容、商家隔离与调用方影响；team-wide不额外要求目录批准标签。
 AI Review 可补充问题发现，但不计入团队真人审批数量。
 
 ## 自动化与强制的区别

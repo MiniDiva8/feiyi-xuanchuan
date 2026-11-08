@@ -3,11 +3,11 @@
 import argparse
 import json
 import sys
-from collab_lib import CollabError, Project, emit
+from collab_lib import CollabError, Project, emit, repository_visibility, scope_mode
 
 def plan(project):
     return {
-        "repository": project.policy["repository"], "visibility": "private",
+        "repository": project.policy["repository"], "visibility": repository_visibility(project.policy),
         "operations_available": ["create", "publish-initial", "configure", "invite", "protect"],
         "collaborators": [
             {"login": m["login"], "permission": "push"}
@@ -16,8 +16,8 @@ def plan(project):
         ],
         "merge_policy": {"method": "squash", "human_merge": True, "auto_merge": False},
         "required_check": project.policy["required_check"], "minimum_peer_reviews": 1,
-        "shared_change_peer_reviews": 2,
-        "protection_notice": "Private-repository branch protection/CODEOWNERS enforcement needs an eligible GitHub plan. Failure is reported; privacy is never weakened.",
+        "shared_change_peer_reviews": 2 if scope_mode(project.policy) == "partitioned" else 1,
+        "protection_notice": "Branch protection/CODEOWNERS enforcement depends on repository settings and plan. Failure is reported; configured visibility is never changed.",
         "credentials": "Every developer uses their own account. No credentials are written to this repository.",
     }
 
@@ -35,14 +35,14 @@ def create(project):
         raise CollabError("EXISTS", "Repository already exists. It was not changed; inspect it before choosing a configuration operation.")
     if "404" not in probe.stderr:
         raise CollabError("GITHUB", "Repository absence could not be confirmed; no repository was created.")
-    result = project.gh.invoke(["repo", "create", repo, "--private", "--description",
+    result = project.gh.invoke(["repo", "create", repo, "--" + repository_visibility(project.policy), "--description",
                                 "非遗宣传：三人独立账号协作的 AI 营销平台", "--disable-wiki"])
-    metadata = project.gh.private_repository()
+    metadata = project.gh.require_repository(repository_visibility(project.policy))
     emit({"created": True, "repository": metadata["full_name"], "private": metadata["private"],
           "url": metadata["html_url"], "notice": "No collaborators, code push or merges are implied by creation."})
 
 def publish_initial(project):
-    metadata = project.gh.private_repository()
+    metadata = project.gh.require_repository(repository_visibility(project.policy))
     head = project.git("rev-parse", "--verify", "HEAD", check=False)
     if head.returncode:
         raise CollabError("EMPTY", "Create and review a local kit commit before first publication.")
@@ -63,10 +63,10 @@ def publish_initial(project):
                    payload={"default_branch": project.base})
     project.fetch()
     emit({"published": True, "branch": project.base, "commit": head.stdout.strip(), "merged": False,
-          "notice": "Initial commit published to previously empty private repository; no existing code merged."})
+          "notice": "Initial commit published to previously empty configured repository; no existing code merged."})
 
 def configure(project):
-    project.gh.private_repository()
+    project.gh.require_repository(repository_visibility(project.policy))
     project.gh.api("repos/" + project.policy["repository"], method="PATCH", payload={
         "has_issues": True, "has_wiki": False, "allow_merge_commit": False,
         "allow_squash_merge": True, "allow_rebase_merge": False, "allow_auto_merge": False,
@@ -86,7 +86,7 @@ def configure(project):
     emit({"configured": True, "auto_merge": False, "merge_method": "squash", "labels": [n for n, _ in definitions]})
 
 def invite(project):
-    project.gh.private_repository()
+    project.gh.require_repository(repository_visibility(project.policy))
     repo = project.policy["repository"]
     collaborators = project.gh.api(f"repos/{repo}/collaborators?per_page=100")
     pending = project.gh.api(f"repos/{repo}/invitations?per_page=100")
@@ -105,7 +105,7 @@ def invite(project):
     emit({"collaborators": outcomes, "credentials_shared": False})
 
 def protect(project):
-    project.gh.private_repository()
+    project.gh.require_repository(repository_visibility(project.policy))
     result = project.gh.invoke(
         ["api", f"repos/{project.policy['repository']}/branches/{project.base}/protection",
          "--method", "PUT", "--input", "-"], check=False, payload={
@@ -120,7 +120,7 @@ def protect(project):
             "required_conversation_resolution": True,
         })
     if result.returncode:
-        raise CollabError("PROTECTION", "GitHub did not enable branch protection. Check private-repository plan eligibility, admin permission and main existence. No privacy/billing change was made. " + result.stderr[-1000:])
+        raise CollabError("PROTECTION", "GitHub did not enable branch protection. Check plan eligibility, admin permission and main existence. No privacy/billing change was made. " + result.stderr[-1000:])
     verified = project.gh.api(f"repos/{project.policy['repository']}/branches/{project.base}/protection")
     emit({"protected": True, "enforce_admins": verified.get("enforce_admins", {}).get("enabled"),
           "required_check": project.policy["required_check"], "auto_merge": False})

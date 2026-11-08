@@ -1,6 +1,6 @@
 # 管理员配置：MiniDiva8
 
-目标仓库：MiniDiva8/feiyi-xuanchuan，中文项目名“非遗宣传”，始终 private。
+目标仓库：MiniDiva8/feiyi-xuanchuan，中文项目名“非遗宣传”，当前经所有者确认已为public；普通协作命令只核验配置，不更改可见性。
 本地独立目录 D:/Codex/Projects/HeritageMarketingCollab。已有 AI创新大赛 项目保留。
 
 ## 已确认与待批准的远程操作
@@ -22,7 +22,7 @@ gh api user --jq .login
 ```powershell
 python scripts/github_admin.py create --apply --confirm MiniDiva8/feiyi-xuanchuan
 ```
-存在同名仓库时停止并保留原仓库。创建后读取 API，验证 full_name 和 private；不能将一次成功请求当作全部配置完成。
+存在同名仓库时停止并保留原仓库。创建后读取 API，验证full_name与collab/team.json配置的visibility；不能将一次成功请求当作全部配置完成。
 
 ## 3. 审查本地文件后首次上传
 确认本地 Git 根目录只覆盖 HeritageMarketingCollab，忽略项生效，测试通过，并已有可审查的本地提交。

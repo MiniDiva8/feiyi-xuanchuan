@@ -6,12 +6,12 @@ body:
   - type: dropdown
     id: module
     attributes:
-      label: 负责模块
+      label: 本次涉及模块（不是权限限制）
       options:
         - frontend / MiniDiva8
         - backend / donghaochen45-pixel
         - ai / zhupaifan
-        - shared / 须团队先确认
+        - cross-module / 三人均可修改全部代码
     validations:
       required: true
   - type: textarea
@@ -25,7 +25,7 @@ body:
     id: scope
     attributes:
       label: 允许修改路径
-      description: 每行一个仓库内路径。共享路径须先获团队确认；不得修改其他人的模块。
+      description: 每行一个仓库内路径；三人均可跨目录开发。列明本次任务范围，避免并发改动冲突。
       placeholder: apps/web/
     validations:
       required: true

@@ -66,5 +66,7 @@
       "tests",
       "-v"
     ]
-  ]
+  ],
+  "scope_mode": "team-wide",
+  "visibility": "public"
 }

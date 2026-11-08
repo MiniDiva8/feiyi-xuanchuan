@@ -31,6 +31,9 @@ class GitLifecycleTests(unittest.TestCase):
         git(self.seed, "config", "user.name", "Fixture Maintainer")
         git(self.seed, "config", "user.email", "fixture@example.invalid")
         policy = json.loads((KIT / "collab/team.json").read_text(encoding="utf-8"))
+        # Keep these fixtures on the legacy partitioned/private policy.
+        policy.pop("scope_mode", None)
+        policy.pop("visibility", None)
         policy["checks"] = []
         (self.seed / "collab").mkdir()
         (self.seed / "collab/team.json").write_text(json.dumps(policy), encoding="utf-8")
