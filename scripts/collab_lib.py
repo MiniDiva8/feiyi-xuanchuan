@@ -40,20 +40,41 @@ def normalized_path(value):
         raise CollabError("SCOPE", f"Unsafe repository-relative path: {value!r}")
     return value
 
+def scope_mode(policy):
+    mode = policy.get("scope_mode", "partitioned")
+    if mode not in {"partitioned", "team-wide"}:
+        raise CollabError("CONFIG", "scope_mode must be partitioned or team-wide.")
+    return mode
+
+
+def repository_visibility(policy):
+    visibility = policy.get("visibility", "private")
+    if visibility not in {"private", "public"}:
+        raise CollabError("CONFIG", "visibility must be private or public.")
+    return visibility
+
+
+def shared_approval_required(policy, requested):
+    return bool(requested) and scope_mode(policy) == "partitioned"
+
+
 def policy_scope(policy, member, paths, allow_shared=False):
     if member not in policy["members"]:
         raise CollabError("CONFIG", "Unknown member key.")
+    mode = scope_mode(policy)
     denied = []
     for raw in paths:
         path = normalized_path(raw)
-        pieces = path.split("/")
-        protected = {".git", ".aws", ".ssh", ".codex", "node_modules", ".venv", "venv", "__pycache__", "dist", "build"}
+        pieces = path.lower().split("/")
+        protected = {".git", ".aws", ".ssh", ".codex", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".data", ".artifacts", ".pytest_cache", ".next", "coverage", "test-results", "playwright-report"}
         basename = pieces[-1].lower()
         secret = basename == ".env" or (basename.startswith(".env.") and basename != ".env.example")
         secret = secret or any(fnmatch.fnmatch(basename, p) for p in
                                ["*.pem", "*.key", "*.pfx", "*.p12", "id_rsa*", "auth.json"])
         if protected.intersection(pieces) or secret:
             denied.append(path)
+            continue
+        if mode == "team-wide":
             continue
         owner = None
         for key, record in policy["members"].items():
@@ -108,11 +129,18 @@ class GhClient:
             raise CollabError("IDENTITY", f"Authenticated account is {actual}; this task belongs to {login}.")
         return actual
 
-    def private_repository(self):
+    def require_repository(self, visibility="private"):
+        repository_visibility({"visibility": visibility})
         data = self.api("repos/" + self.repository)
-        if data.get("full_name", "").lower() != self.repository.lower() or not data.get("private"):
-            raise CollabError("VISIBILITY", "Expected private repository does not match. No write was performed.")
+        actual = "private" if data.get("private") is True else "public" if data.get("private") is False else None
+        if (data.get("full_name", "").lower() != self.repository.lower()
+                or actual != visibility or data.get("visibility", actual) != visibility):
+            raise CollabError("VISIBILITY", "Repository identity or configured visibility does not match. No write was performed.")
         return data
+
+    def private_repository(self):
+        """Legacy callers retain their explicit private-only expectation."""
+        return self.require_repository("private")
 
     def issue(self, number):
         return self.api(f"repos/{self.repository}/issues/{number}")
@@ -137,6 +165,8 @@ class Project:
             raise CollabError("ROOT", "Run this project's scripts from this project's Git checkout; parent or unrelated repositories are refused.")
         self.policy = json.loads((self.root / "collab/team.json").read_text(encoding="utf-8"))
         valid_repo(self.policy["repository"])
+        scope_mode(self.policy)
+        repository_visibility(self.policy)
         logins = [m["login"].lower() for m in self.policy["members"].values()]
         if len(logins) != 3 or len(set(logins)) != 3:
             raise CollabError("CONFIG", "Exactly three different developer logins are required.")
@@ -251,7 +281,7 @@ class Project:
         if online and data.get("mode") == "online":
             self.gh.require_actor(login)
             self.use_gh_credentials = True
-            self.gh.require_issue(issue, login, data.get("allow_shared", False))
+            self.gh.require_issue(issue, login, shared_approval_required(self.policy, data.get("allow_shared", False)))
         return data
 
     def paths(self, *diff_args, untracked=False):

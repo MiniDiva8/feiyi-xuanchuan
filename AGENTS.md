@@ -11,16 +11,14 @@
 6. Cloud 已连接 GitHub 而 gh 未认证时，不要复制任何人的凭据。用原生 GitHub 连接核验 Issue 后，可执行 start 的 --native --native-issue-verified 模式；明确记录核验依据。该标志表示由调用者完成核验，不是脚本自行认证。
 7. --offline 仅适用于临时本地 bare 仓库仿真，不适用于真实 GitHub 开发。
 
-## 负责边界
-- a / MiniDiva8：apps/web/、docs/frontend/、tests/frontend/。
-- b / donghaochen45-pixel：services/api/、docs/backend/、tests/backend/。
-- c / zhupaifan：services/marketing-ai/、docs/ai/、tests/ai/。
-- 以上为建议初始分工，调整要经团队确认并通过 PR 修改 team.json。
-- 不得直接改另一人的负责模块，包含删除、移动、重命名原路径。
-- packages/contracts/、根配置、scripts/、.github/、公共文档和公共测试属于共享范围。先在 Issue 说明必要性、接口影响与允许路径，由团队确认后加 scope:shared-approved 标签，再以 --allow-shared 开始任务。
-- --allow-shared 不授予其他成员模块的修改权。跨模块任务须拆成分别指派的 Issues/PR，通过共享契约协调。
-- 脚本与 CI 校验模块边界；Issue 内更细的文件范围还须由 agent 遵守、由评审者核对。
-- CODEOWNERS 是评审责任表，不是目录写权限 ACL；备份评审者不因此获得任务修改范围。
+## 三人共同代码权限（2026-11-08 所有者明确确认）
+- MiniDiva8、donghaochen45-pixel、zhupaifan 三人都可以修改前端、后端、AI、契约、脚本、测试和文档等全部项目代码。
+- collab/team.json 的 scope_mode=team-wide 是当前权限策略；members.module/paths 只表示主责参考，不构成路径禁令。
+- 本条明确撤销各子目录 AGENTS.md 和历史文档中“只修改本模块”“不得修改另外两人模块”的旧权限限制。所有模块均以本条为准；子目录中的数据隔离、来源核验、技术及测试要求继续适用。
+- 不因跨模块或修改公共目录要求 scope:shared-approved 或 --allow-shared；该标签/参数仅供旧 partitioned 策略兼容。
+- 一项任务仍对应一个 Issue、一个负责人、本人分支及一个 PR；三人可做跨模块任务，先在 Issue 写清本次目标、路径和验收要求，避免同时改同一处代码。
+- 保护凭据、运行数据库、依赖、构建产物、缓存与 Git 元数据；全目录代码权限不允许提交这些文件。
+- CODEOWNERS 是评审责任，不是目录写入权限。三人共同拥有代码评审资格，作者本人不能替代同伴审批。
 
 ## 实现与交付
 - 优先固定接口契约后并行实现；在 Issue 记录依赖、假设和阻塞。无需等待的模块继续独立推进。
@@ -35,8 +33,8 @@
 - 不自动合并、公开仓库、部署、变更授权或购买服务。任何合并由人明确决定。
 
 ## 审查与合并
-普通改动至少一位其他成员审批；共享范围需要另外两位成员审批。审批应对应当前 PR head，新增提交后重新审查。
-先结束草稿，再运行 `python scripts/collab.py check-pr --pr <编号>`。它核对当前 head、main、Issue、模块范围、评审和实际 CI；没有 CI、未知可合并性、旧审批都不是通过。
+team-wide 模式所有改动至少一位其他成员对当前 head 审批；旧 partitioned 模式共享范围仍需另外两位审批。审批应对应当前 PR head，新增提交后重新审查。
+先结束草稿，再运行 `python scripts/collab.py check-pr --pr <编号>`。它核对当前 head、main、Issue、本次任务路径、评审和实际 CI；没有 CI、未知可合并性、旧审批都不是通过。
 由人到 GitHub 执行 Squash and merge。当前检查只是状态快照；主分支变化后重新检查。
 支持的 GitHub 计划可配置 main 分支保护，强制检查和审批；不支持时这些只是协作约定与检查工具，不能声称服务器已强制执行。
 
@@ -49,4 +47,4 @@
 - 重点检查多商家数据隔离：检索、文件、生成任务和报表必须绑定正确商家。
 - 区分非遗来源事实、商家确认信息、AI 假设和未验证效果；不得编造传承人身份或宣传成效。
 - 方案/素材审核绑定具体版本；文化表述或素材修改后重新审核，发布与复盘可追溯实际版本。
-- 不允许通过改脚本、模板或 CI 绕过范围、身份、检查和人工合并要求。
+- 不允许通过改脚本、模板或 CI 绕过身份、敏感文件保护、检查和人工合并要求。CI 使用目标分支的策略核验权限，策略迁移本身也须评审。

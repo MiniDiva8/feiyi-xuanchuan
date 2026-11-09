@@ -8,7 +8,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from collab_lib import CollabError, Project, emit, run
+from collab_lib import CollabError, Project, emit, run, repository_visibility, shared_approval_required
 
 def doctor(project, _args):
     result = {
@@ -43,8 +43,8 @@ def start(project, args):
     if mode == "online":
         project.gh.require_actor(login)
         project.use_gh_credentials = True
-        project.gh.private_repository()
-        project.gh.require_issue(args.issue, login, args.allow_shared)
+        project.gh.require_repository(repository_visibility(project.policy))
+        project.gh.require_issue(args.issue, login, shared_approval_required(project.policy, args.allow_shared))
     elif mode == "native" and not args.native_issue_verified:
         raise CollabError("ISSUE", "Use the native GitHub connector to verify the open Issue and its single assignee first, then pass --native-issue-verified.")
     project.fetch()
@@ -113,8 +113,8 @@ def publish(project, args):
         raise CollabError("OFFLINE", "Simulation tasks cannot publish GitHub PRs or push through this command.")
     project.gh.require_actor(data["login"])
     project.use_gh_credentials = True
-    project.gh.private_repository()
-    project.gh.require_issue(data["issue"], data["login"], data["allow_shared"])
+    project.gh.require_repository(repository_visibility(project.policy))
+    project.gh.require_issue(data["issue"], data["login"], shared_approval_required(project.policy, data["allow_shared"]))
     project.clean()
     project.fetch()
     paths = project.paths(f"origin/{project.base}...HEAD")
@@ -161,7 +161,7 @@ def publish(project, args):
 
 def board(project, _args):
     project.check_remote()
-    project.gh.private_repository()
+    project.gh.require_repository(repository_visibility(project.policy))
     issues = project.gh.invoke(["issue", "list", "--repo", project.policy["repository"], "--state", "open",
                                "--limit", "100", "--json", "number,title,assignees,labels,url"])
     prs = project.gh.invoke(["pr", "list", "--repo", project.policy["repository"], "--state", "open",

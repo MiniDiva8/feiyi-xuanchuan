@@ -59,9 +59,9 @@ Who can use 设为 Only me。只允许实际需要的网络目的地，至少核
 ## D. Cloud 原生连接器与 gh 的两条路线
 **CLI 路线：**本人 gh 已认证且 Git fetch/push 可用时，直接使用 collab.py 全流程。doctor 展示当前登录名，必须与成员键一致。
 **原生路线：**若 Cloud GitHub 连接有效但 gh 不可用/未认证：
-1. 用原生 GitHub 工具读取 Issue、核实唯一 Assignee 与范围；共享改动核实批准标签。
+1. 用原生 GitHub 工具读取 Issue、核实唯一 Assignee 与范围；team-wide不需要目录批准标签；旧partitioned共享改动仍核实批准标签。
 2. 确保环境自身的 Git 连接能 fetch；如果不能，先修复本人连接，不用离线标志绕过。
-3. 执行 `start --native --native-issue-verified --member <成员键> --issue <编号> --slug <短名>`；如已批准共享范围再加 --allow-shared。
+3. 执行 `start --native --native-issue-verified --member <成员键> --issue <编号> --slug <短名>`；team-wide无需--allow-shared；仅旧partitioned共享任务需该参数。
 4. 用 save/preflight/sync 做本地工作，最后使用 Cloud 的 **Create PR** 或原生 GitHub 创建草稿 PR。PR 保留规范分支、Closes #Issue、检查证据。
 5. 如原生 PR 功能不可用，只交付 diff 和 PR 文案，并明确“尚未创建 PR”；不能说已推送。
 6. 另一位具备本人 gh 认证的成员可用 check-pr 读取 PR 状态，或在 GitHub 对照当前提交手工核验。
@@ -92,3 +92,7 @@ PowerShell 包装器被系统执行策略拦截时，直接用 python 命令；�
 - 其他成员对最新 head 审批；由人决定是否合并。
 - 合并后再次新开任务，确认 main 包含队友的变化。
 将结果写进 verification.md。未做的项继续标未验证，不能因为本地仿真通过就打勾。
+
+## 全目录权限更新
+
+当前采用team-wide/public策略，三人均可跨前端、后端、AI和公共目录开发。旧任务需先同步包含规则更新的main；仅刷新环境不会更新脚本。完整操作与保留项见[三人共同代码权限](team-wide-access.md)。

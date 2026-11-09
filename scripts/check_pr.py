@@ -2,12 +2,14 @@
 """Read-only GitHub PR and CI policy checks. No merge operation is implemented."""
 from __future__ import annotations
 import argparse
+import base64
 import json
 import os
 import re
 import sys
 from pathlib import Path
-from collab_lib import CollabError, Project, emit, policy_scope
+from types import SimpleNamespace
+from collab_lib import CollabError, Project, emit, policy_scope, repository_visibility, scope_mode
 
 def branch_task(branch, policy):
     match = re.fullmatch(r"codex/([A-Za-z0-9-]+)/issue-([1-9][0-9]*)-([a-z0-9][a-z0-9-]{0,63})", branch)
@@ -102,21 +104,45 @@ def scope_check(project, pr):
     try:
         policy_scope(project.policy, member, paths, False)
     except CollabError:
+        if scope_mode(project.policy) == "team-wide":
+            raise
         project.gh.require_issue(issue_number, login, True)
         policy_scope(project.policy, member, paths, True)
         shared = True
     return {"member": member, "issue": issue_number, "files": sorted(set(paths)),
             "shared_scope": shared, "issue_url": issue.get("html_url")}
 
+def trusted_review_policy(project, pr):
+    """Read authorization from the PR's pinned BASE, never from local HEAD."""
+    sha = pr.get("base", {}).get("sha", "")
+    if not re.fullmatch(r"[a-fA-F0-9]{40}", sha):
+        raise CollabError("GITHUB", "PR base commit could not be verified.")
+    response = project.gh.api(f"repos/{project.policy['repository']}/contents/collab/team.json?ref={sha}")
+    try:
+        if response.get("encoding") != "base64":
+            raise ValueError("Unsupported policy encoding")
+        encoded = "".join(response["content"].split())
+        policy = json.loads(base64.b64decode(encoded, validate=True))
+    except (KeyError, TypeError, ValueError):
+        raise CollabError("GITHUB", "Trusted base policy could not be decoded; readiness was not approved.")
+    if (not isinstance(policy, dict) or not isinstance(policy.get("repository"), str)
+            or policy["repository"].lower() != project.policy["repository"].lower()):
+        raise CollabError("REMOTE", "Trusted base policy names a different repository.")
+    scope_mode(policy)
+    return policy
+
+
 def live_check(project, number):
     if number < 1:
         raise CollabError("INPUT", "PR number must be positive.")
     project.check_remote()
-    project.gh.private_repository()
+    project.gh.require_repository(repository_visibility(project.policy))
     prefix = f"repos/{project.policy['repository']}"
     pr = project.gh.api(f"{prefix}/pulls/{number}")
-    scope = scope_check(project, pr)
-    main = project.gh.api(f"{prefix}/branches/{project.base}")["commit"]["sha"]
+    authority = trusted_review_policy(project, pr)
+    scope = scope_check(SimpleNamespace(policy=authority, gh=project.gh), pr)
+    base_branch = authority["base_branch"]
+    main = project.gh.api(f"{prefix}/branches/{base_branch}")["commit"]["sha"]
     comparison = project.gh.api(f"{prefix}/compare/{main}...{pr['head']['sha']}")
     check_response = project.gh.invoke(
         ["pr", "checks", str(number), "--repo", project.policy["repository"],
@@ -129,12 +155,12 @@ def live_check(project, number):
     if check_response.returncode not in {0, 1, 8}:
         raise CollabError("GITHUB", "CI status query failed.")
     reviews = api_pages(project.gh, f"{prefix}/pulls/{number}/reviews")
-    result = evaluate_pr(pr, checks, reviews, main, project.policy,
+    result = evaluate_pr(pr, checks, reviews, main, authority,
                          up_to_date=comparison.get("status") in {"ahead", "identical"},
                          shared_scope=scope["shared_scope"])
     # Re-read identities after gathering checks/reviews to catch a concurrent push/main update.
     latest_pr = project.gh.api(f"{prefix}/pulls/{number}")
-    latest_main = project.gh.api(f"{prefix}/branches/{project.base}")["commit"]["sha"]
+    latest_main = project.gh.api(f"{prefix}/branches/{base_branch}")["commit"]["sha"]
     if latest_pr["head"]["sha"] != pr["head"]["sha"] or latest_main != main:
         result["ready"] = False
         result["reasons"].append("repository changed during inspection; rerun check")
