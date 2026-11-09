@@ -1,0 +1,44 @@
+services:
+  platform:
+    build:
+      context: .
+      dockerfile: Dockerfile.platform
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8010:8010"
+    environment:
+      DATABASE_URL: postgresql+psycopg://heritage:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/heritage
+      MARKETING_AI_API_KEY: ${MARKETING_AI_API_KEY:-}
+      MARKETING_AI_BASE_URL: ${MARKETING_AI_BASE_URL:-https://api.openai.com/v1}
+      MARKETING_AI_MODEL: ${MARKETING_AI_MODEL:-gpt-4.1-mini}
+      MARKETING_AI_TIMEOUT_SECONDS: ${MARKETING_AI_TIMEOUT_SECONDS:-45}
+      MARKETING_AI_MAX_OUTPUT_TOKENS: ${MARKETING_AI_MAX_OUTPUT_TOKENS:-2400}
+      SESSION_SECURE: ${SESSION_SECURE:-false}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-http://127.0.0.1:8010}
+    volumes:
+      - platform_files:/app/.data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: heritage
+      POSTGRES_USER: heritage
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - platform_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heritage -d heritage"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  platform_files:
+  platform_database:

@@ -1,6 +1,21 @@
-# 非遗宣传 · GitHub + Codex Cloud 三人协作
+# 承艺 · 非遗商家 AI 营销平台
 
-服务产品销售与体验课程商家的 AI 营销平台。本仓库当前交付的是**协作开发基础设施**，尚未实现营销平台业务功能。
+服务产品销售与体验课程商家的中文营销工作台，包含真实持久化后端、响应式前端与可配置 AI 模块。业务覆盖资料来源、商品与课程、活动策划、版本审核、内容导出、手动发布登记、经营数据和有证据的复盘。原有三人协作基础设施保留。
+
+## 启动产品
+
+```powershell
+powershell -File scripts/start-platform.ps1 -Install
+```
+
+已安装并构建时省略 `-Install`。打开本机 `http://127.0.0.1:8010` 注册自己的商家空间。默认数据库为空；无模型密钥时明确提供模板草稿。
+
+- [完整使用与部署手册](docs/platform/RUNBOOK.md)
+- [实际验证与未验证内容](docs/platform/VERIFICATION.md)
+- [共享业务接口](packages/contracts/platform-api.md)
+- [产品设计](docs/superpowers/specs/2026-10-31-marketing-platform-design.md)
+
+本轮没有部署线上环境、接入渠道自动发布或处理支付。模型密钥与渠道授权由实际使用方配置。
 
 远程目标：**MiniDiva8/feiyi-xuanchuan，公开仓库**。三名开发者使用自己的 GitHub、Codex 账号和个人 Cloud 环境。无需 SSH 服务器、自建云服务器或共享文件系统。
 
@@ -42,13 +57,13 @@ start 从最新 origin/main 开始；save 做范围检查、项目检查、明�
 
 已有 Codex GitHub 连接器不一定代表 gh CLI 已登录。Cloud 中如 gh 不可用，按教程使用原生 GitHub/PR 功能，保留相同的 Issue、分支和检查约定。
 
-## 环境要求与验证
+## 协作脚本的环境要求与验证
 
 - Python 3.11+、Git 2.38+；CLI 远程自动化另需本人登录的 GitHub CLI。
-- 本套件不需要第三方 Python 包、OpenAI API Key、SSH 或云服务器。
+- 原有协作脚本不需要第三方 Python 包、OpenAI API Key、SSH 或云服务器；营销产品依赖与模型配置请见上方产品使用手册。
 - `python -m unittest discover -s tests -v`
 - `python scripts/simulate_team.py`：只在临时目录运行三 clone Git 仿真，不代表三个真实账户或 Cloud 环境通过。
 - CI 预置 Windows/Ubuntu 双平台检查；必须等待实际 Actions 结果，才能声称云端 CI 通过。
-- 业务代码落地后，把相应前端、后端、AI 检查加入 collab/team.json 的 checks 和 CI；当前协作测试不证明业务功能有效。
+- 原有协作 CI 只验证协作脚本及模块范围，不代表营销业务检查已在 GitHub 执行；业务测试、前端构建和浏览器验收的实际结果见产品验收记录。
 
 实际分支保护以GitHub设置为准。本次核查main没有分支保护；协作脚本和CI保留评审与测试检查，不能将约定描述为服务器已经强制保护。详见 [官方资料](docs/sources.md)。
