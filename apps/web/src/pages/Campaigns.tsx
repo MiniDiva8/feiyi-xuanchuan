@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context";
 import PosterDesigner from "../components/PosterDesigner";
+import VideoAnalysis from "../components/VideoAnalysis";
 import ContentPreview, {
   ContentChecks,
   ContentEvidence,
@@ -375,6 +376,13 @@ export function StudioPage({ id }: { id: string }) {
           传播素材<span>{assets.data?.length || 0}</span>
         </button>
         <button
+          className={tab === "video" ? "active" : ""}
+          aria-pressed={tab === "video"}
+          onClick={() => setTab("video")}
+        >
+          视频分析
+        </button>
+        <button
           className={tab === "review" ? "active" : ""}
           aria-pressed={tab === "review"}
           onClick={() => setTab("review")}
@@ -382,6 +390,7 @@ export function StudioPage({ id }: { id: string }) {
           复盘与下一轮
         </button>
       </div>
+      {tab === "video" && <VideoAnalysis campaignId={id} />}
       {tab === "plan" && (
         <>
           {plans.loading ? (

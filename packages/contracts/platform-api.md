@@ -40,6 +40,11 @@ generate_asset -> {title,body,content:dict,checks:list,generation_mode,usage:dic
 build_review -> {content:Review.content,generation_mode,usage:dict}.
 check_content -> [{level,message}]. Only confirmed marketing knowledge is used. Insufficient knowledge produces a warning. The AI engine reads MARKETING_AI_BASE_URL (default https://api.deepseek.com), MARKETING_AI_API_KEY, MARKETING_AI_MODEL, MARKETING_AI_TIMEOUT_SECONDS, MARKETING_AI_MAX_OUTPUT_TOKENS, and MARKETING_AI_THINKING. An empty key produces a labeled template. A failed model call raises a sanitized RuntimeError.
 
+## Video analysis
+
+- `GET /api/workspaces/{workspace_id}/campaigns/{campaign_id}/video-analyses` returns `{available, items}` for a workspace member, with up to ten recent reports for the campaign.
+- `POST` to the same path with `consent=true`, an encoded `X-Video-Filename` header and the raw MP4 or MOV body. Requires editing permission, a DeepSeek Flash configuration, up to 40 MiB and up to 90 seconds. Returns a saved report with transcript segments, sampled timestamps, summary, suggestions, limitations and source checks. Suggestion categories are `hook`, `cut` and `subtitle`. Times are milliseconds from the video start.
+
 ## Integration additions
 PATCH /workspaces/{workspace_id}/campaigns/{id} accepts partial CampaignInput, returns Campaign; retains IDs and history, prior approvals become stale if the brief changed. New-round campaigns can update budget and dates before regeneration.
 CSV rows sharing an external_id but differing normalized data are conflicts, not duplicates: preview returns row errors; import is rejected atomically. Only exact normalized duplicates are skipped.

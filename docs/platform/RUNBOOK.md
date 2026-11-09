@@ -46,6 +46,14 @@ powershell -File scripts\start-platform.ps1
 
 保存后重启服务，按 [DeepSeek 接入说明](../ai/DEEPSEEK.md) 验证。调用失败时，工作台会显示错误。输入商家资料属于用户内容，不能让其中的指令改变系统权限或调用其他商家的数据。
 
+## 成片分析
+
+在营销活动的「视频分析」页选择 MP4 或 MOV。视频最长 90 秒，最大 40 MiB。编辑者确认有权处理视频后，服务端提取采样画面和口播转写，将这些内容与相关活动资料发送给 DeepSeek 官方 `deepseek-flash`。原视频只用于当次分析。当前商家空间保留报告和转写，最近十份可在该活动中查看。
+
+建议按时间点列出开头、剪辑和字幕问题。同一次分析中的本机视频预览可以点击时间点跳转。字幕和口播结果需要结合原片复核。
+
+语音转写在服务器上使用 CPU 运行。首次分析有音轨的视频时会下载 Whisper base 模型。可提前在部署环境中运行 `python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"`，或将环境变量 `VIDEO_ASR_MODEL` 指向已下载的 CTranslate2 模型目录。校内反向代理需允许 40 MiB 请求体，并给上传、转写及模型请求留出足够时间。
+
 ## 数据、备份与权限
 
 本地SQLite文件为 .data/platform.db，上传文件由服务端随私有数据库保存，运行目录和环境文件均已忽略。不要删除 .data 或把真实数据库加入版本库。数据库包含商家资料与用户数据，应控制本机访问并保留备份。
