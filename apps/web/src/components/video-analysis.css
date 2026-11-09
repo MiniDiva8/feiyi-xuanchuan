@@ -1,0 +1,72 @@
+.video-analysis,
+.video-analysis-body {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.video-analysis-body {
+  padding: 0 22px 22px;
+}
+
+.video-analysis-body p,
+.video-analysis-list {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.video-analysis-body label:not(.video-analysis-consent) {
+  display: grid;
+  gap: 8px;
+}
+
+.video-analysis-body input[type="file"],
+.video-analysis-body select {
+  max-width: 100%;
+}
+
+.video-analysis-body video {
+  width: min(100%, 680px);
+  max-height: 480px;
+  border-radius: 8px;
+  background: #171717;
+}
+
+.video-analysis-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.video-analysis-consent input {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.video-analysis-hint {
+  color: #6d6875;
+  font-size: 13px;
+}
+
+.video-analysis-list {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.video-analysis-list li {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #ebe7ee;
+  border-radius: 8px;
+}
+
+.video-analysis-transcript {
+  padding-left: 1.25rem;
+}
+
+.video-analysis-body summary {
+  cursor: pointer;
+}

@@ -17,6 +17,8 @@ from .routes_workspace import router as workspace_router
 from .routes_workflow import router as workflow_router
 from .routes_data import router as data_router
 from .routes_channels import router as channels_router
+from .routes_video import router as video_router
+from .video import MAX_VIDEO_BYTES
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -74,7 +76,11 @@ def create_app(database_url=None, storage_path=None):
                     {"detail": "请求来源不受信任，请从本工作台操作"}, status_code=403
                 )
             try:
-                if int(request.headers.get("content-length", "0")) > 11 * 1024 * 1024:
+                limit = 11 * 1024 * 1024
+                if (request.method == "POST" and request.url.path.startswith("/api/workspaces/")
+                        and request.url.path.endswith("/video-analyses")):
+                    limit = MAX_VIDEO_BYTES
+                if int(request.headers.get("content-length", "0")) > limit:
                     return JSONResponse({"detail": "请求体过大"}, status_code=413)
             except ValueError:
                 return JSONResponse({"detail": "请求体大小无效"}, status_code=400)
@@ -122,7 +128,7 @@ def create_app(database_url=None, storage_path=None):
     def health():
         return {"ok": True}
 
-    for router in (auth_router, workspace_router, workflow_router, data_router, channels_router):
+    for router in (auth_router, workspace_router, workflow_router, data_router, channels_router, video_router):
         app.include_router(router)
     dist = ROOT / "apps/web/dist"
 
