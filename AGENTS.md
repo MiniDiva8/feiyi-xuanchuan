@@ -10,6 +10,7 @@
 5. 新的 Cloud 任务也必须实际拉取并核对 main；环境快照、缓存和“新任务”本身都不构成最新代码的证明。已有任务保留自己的状态。
 6. Cloud 已连接 GitHub 而 gh 未认证时，不要复制任何人的凭据。用原生 GitHub 连接核验 Issue 后，可执行 start 的 --native --native-issue-verified 模式；明确记录核验依据。该标志表示由调用者完成核验，不是脚本自行认证。
 7. --offline 仅适用于临时本地 bare 仓库仿真，不适用于真实 GitHub 开发。
+8. 原生草稿 PR 写明关联 Issue、起始 main 的 SHA、实际测试结果和未验证项。提交差异不等同于已创建 PR。
 
 ## 三人共同代码权限（2026-11-08 所有者明确确认）
 - MiniDiva8、donghaochen45-pixel、zhupaifan 三人都可以修改前端、后端、AI、契约、脚本、测试和文档等全部项目代码。

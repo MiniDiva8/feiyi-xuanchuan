@@ -1,0 +1,110 @@
+# 前端工作台
+React + TypeScript + Vite，中文商家协作界面。源码按 API、类型、共享 UI 与页面拆分，使用 lucide-react；图标使用原生 SVG；原创装饰图由仓库本地提供，无外部图片和字体下载依赖。
+
+## 启动
+在项目根目录运行：
+
+```powershell
+Set-Location apps/web
+npm.cmd ci
+npm.cmd run dev
+```
+
+访问 http://127.0.0.1:5173，API 服务应已监听 http://127.0.0.1:8010。Vite 固定 5173 端口；只重写来自该端口的明确 localhost/127.0.0.1 Origin，任意外部 Origin 保留，交给后端拒绝。
+
+生产构建：
+
+```powershell
+npm.cmd run build
+```
+
+输出在 apps/web/dist，由后端同源提供；前端所有私有请求带 Cookie，并使用 /api 相对地址。无需在前端配置或保存模型密钥。
+
+## 已实现
+- 注册创建空商家、登录/退出、切换与创建商家空间。
+- 真实经营概览、零数据 onboarding，无静态增长和虚构成效。
+- 知识资料新增、编辑、确认、撤销、删除与最大 10 MiB 文件附件；来源和营销使用范围分别展示。
+- 产品 / 体验课程创建与编辑、售价、库存 / 名额、履约及外部承接链接。
+- 活动创建、简报修改，销售/报名目标匹配产品/课程与正库存；支持调整下一轮的时间与预算。
+- 策划版本、来源依据、生成模式、批准 / 退回 / 修订；素材按渠道生成，编辑创建新版本、审核、批准后导出 TXT / HTML / SVG，SVG 转 PNG。
+- 人工发布作品链接与时间登记，不暗示自动渠道发布。
+- 指标手动录入、CSV 模板、预检、错误与重复提示、确认事务导入；统计按真实数据汇总，未知归因收入单列。
+- 复盘区分事实、原因假设、验证、建议与数据不足；下一轮创建独立活动。
+- 成员角色、服务端 AI 配置状态、任务失败/重试、操作审计。
+- 表单原生约束、异步忙碌/禁用/错误提示、弹窗焦点锁与退出恢复、键盘与移动导航、375px 布局。
+
+## 验证记录
+2026-10-31：npm.cmd test 3 项通过，验证新草稿阻止旧已批准素材导出、数值版本顺序与 CSV 模板转义；npm.cmd run build 的 TypeScript 检查与 Vite 生产构建通过。页面源码经过本地 Prettier 格式化。根任务另行运行后端与完整浏览器验收；本记录不将未运行的浏览器路径声称为已验证。
+
+## 边界
+审核角色与商家隔离最终由服务端强制。来源或关联商品变化导致旧审批失效时，服务端返回明确错误，需重新生成并审核。未配置 AI 时明确显示“模板草稿”；模型配置只在服务端。外部购买/报名、渠道人工发布和指标来源需要商家真实维护。
+
+## 异步边界回归
+`.venv/Scripts/python.exe tests/frontend/async_regressions.py --base-url http://127.0.0.1:8011`
+
+2026-10-31 使用项目已有 Playwright 与 Edge，针对已构建界面并完全 mock API，2 项真实浏览器回归通过：
+1. A 资料上传延迟 → 取消 → 编辑 B → A 上传返回，B 保存请求不会携带 A 的 file_id。
+2. A 活动可发布素材已加载 → 切换 B 且 B 加载失败，A 素材不会残留为 B 的可发布项，登记按钮禁用。
+
+这些回归不写入实际业务数据库；完整经营闭环由项目级浏览器验收另行覆盖。
+## 实拍海报
+
+在活动工作室生成海报后，点击“照片与海报设计”，上传 PNG/JPEG/WebP（10 MiB 内）、确认宣传使用权，选择雅绿/暖陶/留白模板并编辑文字。预览带待审核标记；保存创建新素材版本，必须再次审核后才能导出 SVG/PNG。照片按比例完整展示，不生成或改变产品外观。
+
+后端只接受当前商家的图片文件 ID，不读取外部图片 URL；图片内嵌在导出 SVG，转换 PNG 无需公开商家附件。原有无照片海报兼容，移除照片也会创建新版本。
+
+接口：POST assets/{id}/preview 使用 ReviseAsset 数据返回不持久化的草稿 SVG；POST assets/{id}/revise 新增可选 poster_template（heritage/warm/minimal）、poster_image_id（null 移除）和 photo_confirmed（关联照片时必须 true）。照片与模板保存在 content 中。预览要求编辑权限，不能绕过审核导出。
+
+验证：新增后端测试覆盖照片归属、文件类型、使用确认、旧版本不可导出、新版待审核、审核后照片嵌入及移除。tests/frontend/photo_posters_acceptance.py 在 8011 的独立验收库上运行，使用合成图片和模板生成，不写真实商家数据；实际检查了手机界面、预览、保存、审批和 PNG 下载。
+
+## 渠道账号与数据快照
+
+导航“渠道账号”支持抖音、B站、小红书、快手、微信视频号。保存昵称、平台账号标识及可选HTTPS主页，不收集账号密码。微信视频号可无公开链接。昵称及主页可编辑，平台和账号标识不可改成另一个账号，避免混用历史记录。
+
+运营数据为手动累计快照：日期、来源、粉丝、累计播放/阅读、点赞、评论、分享、作品总数和可选最近作品日期。缺失指标留空显示未提供，非零；历史累计值不相加。粉丝变化是最近两次快照差值，不冒称单日增量。每账号每天一条，禁止重复；负数、未来日期及不匹配的主页域名被拒绝。
+
+当前未连接官方自动同步，不获取密码、不爬取后台、不承诺实时数据。自动同步下一步需要各平台开发者应用、数据能力准入和商家授权；先前实测AI接口的密钥与社交平台授权无关。
+
+API：GET/POST channels，PATCH channels/{id}，POST channels/{id}/snapshots，均位于 /api/workspaces/{workspace_id}/ 下，读取要求成员权限，写入要求编辑权限。响应 sync_status=not_connected，source_type=manual；快照只属于当前商家与账号。数据不会重复并入现有营销活动经营指标。
+
+验收：50项AI/后端/闭环回归通过，前端6项测试与生产构建通过；真实浏览器测试使用独立QA库，验证添加无主页视频号、两次快照、缺失值、粉丝变化和375px手机无横向溢出。测试入口 tests/frontend/channels_acceptance.py。
+
+## 2026-11-01 界面重做
+
+基于合作人 PR #12 的 8e765d8，包含先前 DeepSeek、首次活动引导、实拍海报与渠道账号功能。仅更新前端及其说明、验收脚本。依赖链保留为草稿 PR，未自动合并到 main。
+
+- 深绿分组导航、统一工作区、品牌登录、真实指标、准备清单、常用入口与活动列表。
+- 稳定的 hash 路径携带商家身份：`#/workspaces/<商家ID>/knowledge`、`#/workspaces/<商家ID>/campaigns/<活动ID>`；第二商家的活动刷新、前后退和直接访问保持正确空间，无成员权限的地址不发起商家数据请求。原 `#/knowledge`、`#/campaigns/<id>` 等短路径仍兼容；`#/campaigns/new` 直接创建，取消后回到列表。
+- Ctrl/Cmd+K 打开功能导航，Escape 关闭；已有编辑弹窗时不再叠加快捷导航，保留未保存输入；键盘“跳至主要内容”保持原页面。商家切换清空页面状态。
+- 品牌资料显示当前商家附件缩略图，来源/使用范围/确认分别展示；搜索无结果有恢复操作。
+- 实拍海报采用宽幅双栏编辑器，右侧真实服务端预览，底部固定操作区；手机可滚动检查预览。保留原照片、权利确认、新版本审核和导出约束。
+- 渠道昵称/主页可以编辑；平台和账号标识在修改界面保持不可编辑，避免用户提交服务端不允许的修改。缺失指标仍显示未提供。
+- `styles.css` 保留业务组件结构，`workspace.css` 是统一视觉层；全页面与关键弹窗在375/768/1440px验证。详情见[设计](2026-11-01-refresh-design.md)、[参考资料](2026-11-01-reference-notes.md)、[资产说明](2026-11-01-assets.md)。
+
+### 这次实际执行的检查
+
+在独立测试数据库上运行，不使用模型密钥或真实商家资料：
+
+```powershell
+# apps/web 下
+npm.cmd test
+npm.cmd run build
+# 项目根目录；先按项目运行手册启动隔离测试服务8011
+python -m pytest tests/backend tests/ai tests/e2e -q
+python tests/e2e/browser_acceptance.py --base-url http://127.0.0.1:8011
+python tests/frontend/async_regressions.py --base-url http://127.0.0.1:8011
+python tests/frontend/preparation_regressions.py --base-url http://127.0.0.1:8011
+python tests/frontend/photo_posters_acceptance.py
+python tests/frontend/channels_acceptance.py
+python tests/frontend/interface_regressions.py --case navigation
+python tests/frontend/interface_regressions.py --case knowledge-search
+python tests/frontend/interface_regressions.py --case channel-edit
+python tests/frontend/interface_regressions.py --case poster-size
+python tests/frontend/interface_regressions.py --case form-layout
+python tests/frontend/interface_regressions.py --case workspace-route
+python tests/frontend/interface_regressions.py --case modal-shortcut
+```
+
+前端13项、生产构建、服务端/AI/契约50项通过；完整浏览器10阶段、首次准备清单失败/重试、渠道快照、照片海报真实PNG下载、异步隔离与新增界面回归通过。`interface_regressions.py --case poster-upload` 另在 Vite5174运行，全部API模拟，验证React StrictMode开发模式的上传/预览。浏览器没有页面脚本错误。服务端测试有一项既存Starlette/httpx弃用提示。
+
+这些结果证明本地操作与模板模式可用；不代表已部署公网、配置了真实模型、接入自动发布或支付同步。当前GitHub工作流只针对main，依赖分支草稿PR不能声称远端CI已通过。
